@@ -671,8 +671,8 @@ $$
 j = i - b(b+1)/2
 $$
 
-
-  ![wwwww](/Screenshot%202026-09-17%20182919.png)
+![kkk](/libro/Screenshot%202026-09-17%20182919.png)
+  
 
   <!-- Leyenda de la figura -->
   <div style="margin-top: 20px; font-size: 14px; text-align: center; width: 100%;">
