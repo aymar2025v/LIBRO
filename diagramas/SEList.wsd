@@ -1,0 +1,252 @@
+@startuml SEList
+skinparam Monochrome true
+skinparam BorderColor Black
+skinparam BackgroundColor White
+
+' ========================================================
+' CLASE INTERNA: BDeque - Constructor
+' ========================================================
+partition "BDeque: Constructor(b)" {
+    start
+    :Asigna **n = 0**, **j = 0**;
+    :Instancia arreglo estático **array<int> z(b + 1)**;
+    :Asigna **a = z**;
+    stop
+}
+
+' ========================================================
+' CONSTRUCTOR PRINCIPAL: SEList(int b)
+' ========================================================
+partition "Constructor: SEList(b)" {
+    start
+    :Invoca constructor base del centinela: **dummy(b)**;
+    :Asigna **this->b = b**;
+    :Enlaza circularmente el centinela:\n**dummy.next = &dummy**\n**dummy.prev = &dummy**;
+    :Asigna **n = 0**;
+    stop
+}
+
+' ========================================================
+' MÉTODO PRIVADO: addBefore(Node *w)
+' ========================================================
+partition "Método Privado: addBefore(w)" {
+    start
+    :Recibe nodo de referencia ***w**;
+    :Crea nuevo nodo con sub-bloque:\n**Node *u = new Node(b)**;
+    :Enlaza punteros dobles:\n**u->prev = w->prev**\n**u->next = w**\n**u->next->prev = u**\n**u->prev->next = u**;
+    :Retorna puntero **u**;
+    stop
+}
+
+' ========================================================
+' MÉTODO PRIVADO: remove(Node *w)
+' ========================================================
+partition "Método Privado: remove(w)" {
+    start
+    :Recibe nodo ***w**;
+    :Desenlaza nodos contiguos:\n**w->prev->next = w->next**\n**w->next->prev = w->prev**;
+    :Libera memoria física **delete w**;
+    stop
+}
+
+' ========================================================
+' MÉTODO PRIVADO: getLocation(int i, Location &ell)
+' ========================================================
+partition "Método Privado: getLocation(i, &ell)" {
+    start
+    :Recibe índice global **i**, referencia **&ell**;
+    if (i < n / 2) then (true)
+        note right: Búsqueda desde la cabeza hacia adelante
+        :Inicializa **Node *u = dummy.next**;
+        while (i >= u->d.size()) is (true)
+            :Resta tamaño del bloque actual:\n**i -= u->d.size()**;
+            :Avanza **u = u->next**;
+        endwhile (false)
+        :Asigna **ell.u = u** y **ell.j = i**;
+    else (false)
+        note right: Búsqueda desde la cola hacia atrás
+        :Inicializa **Node *u = &dummy**;
+        :Inicializa **idx = n**;
+        while (i < idx) is (true)
+            :Retrocede **u = u->prev**;
+            :Resta tamaño del bloque previo:\n**idx -= u->d.size()**;
+        endwhile (false)
+        :Asigna **ell.u = u** y **ell.j = i - idx**;
+    endif
+    stop
+}
+
+' ========================================================
+' MÉTODO PRIVADO: spread(Node *u)
+' ========================================================
+partition "Método Privado: spread(u)" {
+    start
+    :Recibe nodo ***u**;
+    :Asigna **Node *w = u**;
+    :Inicializa **j = 0**;
+    while (j < b) is (true)
+        :Avanza **w = w->next**;
+        :Incrementa **j++**;
+    endwhile (false)
+    :Inserta un nuevo bloque vacío:\n**w = addBefore(w)**;
+    while (w != u) is (true)
+        while (w->d.size() < b) is (true)
+            note right: Pasa el último elemento del bloque\nanterior al inicio del bloque actual
+            :Ejecuta:\n**w->d.add(0, w->prev->d.remove(w->prev->d.size() - 1))**;
+        endwhile (false)
+        :Retrocede **w = w->prev**;
+    endwhile (false)
+    stop
+}
+
+' ========================================================
+' MÉTODO PRIVADO: gather(Node *u)
+' ========================================================
+partition "Método Privado: gather(u)" {
+    start
+    :Recibe nodo ***u**;
+    :Asigna **Node *w = u**;
+    :Inicializa **j = 0**;
+    while (j < b - 1) is (true)
+        while (w->d.size() < b) is (true)
+            note right: Absorbe el primer elemento\ndel bloque siguiente
+            :Ejecuta:\n**w->d.add(w->next->d.remove(0))**;
+        endwhile (false)
+        :Avanza **w = w->next**;
+        :Incrementa **j++**;
+    endwhile (false)
+    :Elimina el bloque remanente vacío:\n**remove(w)**;
+    stop
+}
+
+' ========================================================
+' MÉTODO PRIVADO: add(T x) [Añadir al final]
+' ========================================================
+partition "Método Privado: add(x) [Append]" {
+    start
+    :Recibe valor **x**;
+    :Asigna **Node *last = dummy.prev**;
+    if (last == &dummy || last->d.size() == b + 1) then (true)
+        :Crea nuevo bloque al final:\n**last = addBefore(&dummy)**;
+    else (false)
+    endif
+    :Inserta en el sub-deque:\n**last->d.add(x)**;
+    :Incrementa contador global **n++**;
+    stop
+}
+
+' ========================================================
+' MÉTODOS PÚBLICOS: get / set / size / clear
+' ========================================================
+partition "Métodos Públicos: Básicos" {
+    start
+    if (Acción == "get(i)") then
+        :Llama a **getLocation(i, l)**;
+        :Retorna **l.u->d.get(l.j)**;
+        stop
+    elseif (Acción == "set(i, x)") then
+        :Llama a **getLocation(i, l)**;
+        :Guarda viejo valor **T y = l.u->d.get(l.j)**;
+        :Modifica sub-bloque **l.u->d.set(l.j, x)**;
+        :Retorna viejo valor **y**;
+        stop
+    elseif (Acción == "size()") then
+        :Retorna global **n**;
+        stop
+    elseif (Acción == "clear() / ~SEList()") then
+        :Inicializa **u = dummy.next**;
+        while (u != &dummy) is (true)
+            :Guarda siguiente **Node *w = u->next**;
+            :Libera nodo **delete u**;
+            :Avanza **u = w**;
+        endwhile (false)
+        :Reinicia **n = 0**;
+        stop
+    endif
+}
+
+' ========================================================
+' MÉTODO PÚBLICO: add(int i, T x)
+' ========================================================
+partition "Método Público: add(i, x)" {
+    start
+    :Recibe índice **i**, valor **x**;
+    if (i == n) then (true)
+        :Llama a método privado **add(x)**;
+        stop
+    else (false)
+    endif
+    
+    :Llama a **getLocation(i, l)**;
+    :Inicializa de control **Node *u = l.u**;
+    :Inicializa contador de bloques llenos **r = 0**;
+    
+    while (r < b && u != &dummy && u->d.size() == b + 1) is (true)
+        :Avanza **u = u->next**;
+        :Incrementa **r++**;
+    endwhile (false)
+    
+    if (r == b) then (true)
+        note right: Encontró 'b' bloques consecutivos llenos
+        :Llama a **spread(l.u)**;
+        :Restablece **u = l.u**;
+    else (false)
+    endif
+    
+    if (u == &dummy) then (true)
+        :Llama a **u = addBefore(u)**;
+    else (false)
+    endif
+    
+    while (u != l.u) is (true)
+        note right: Corrimiento hacia atrás en cascada entre deques
+        :Ejecuta:\n**u->d.add(0, u->prev->d.remove(u->prev->d.size() - 1))**;
+        :Retrocede **u = u->prev**;
+    endwhile (false)
+    
+    :Inserta el elemento final en la posición exacta:\n**u->d.add(l.j, x)**;
+    :Incrementa contador global **n++**;
+    stop
+}
+
+' ========================================================
+' MÉTODO PÚBLICO: remove(int i)
+' ========================================================
+partition "Método Público: remove(i)" {
+    start
+    :Recibe índice **i**;
+    :Llama a **getLocation(i, l)**;
+    :Resguarda elemento **T y = l.u->d.get(l.j)**;
+    :Inicializa de control **Node *u = l.u**;
+    :Inicializa contador de bloques vacíos **r = 0**;
+    
+    while (r < b && u != &dummy && u->d.size() == b - 1) is (true)
+        :Avanza **u = u->next**;
+        :Incrementa **r++**;
+    endwhile (false)
+    
+    if (r == b) then (true)
+        note right: Encontró 'b' bloques consecutivos al límite mínimo
+        :Llama a **gather(l.u)**;
+    else (false)
+    endif
+    
+    :Restablece **u = l.u**;
+    :Elimina del sub-deque **u->d.remove(l.j)**;
+    
+    while (u->d.size() < b - 1 && u->next != &dummy) is (true)
+        note right: Rellena vacíos pidiendo prestado adelante
+        :Ejecuta:\n**u->d.add(u->next->d.remove(0))**;
+        :Avanza **u = u->next**;
+    endwhile (false)
+    
+    if (u->d.size() == 0) then (true)
+        :Llama a **remove(u)** para liberar el nodo;
+    else (false)
+    endif
+    
+    :Decrementa contador global **n--**;
+    :Retorna el elemento eliminado **y**;
+    stop
+}
+@enduml

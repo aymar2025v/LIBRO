@@ -1,0 +1,129 @@
+@startuml array
+skinparam Monochrome true
+skinparam BorderColor Black
+skinparam BackgroundColor White
+
+' ========================================================
+' CONSTRUCTOR: array(int len)
+' ========================================================
+partition "Constructor: array(len)" {
+    start
+    :Recibe **len**;
+    :Asigna **length = len**;
+    :Asigna **a = new T[length]**;
+    stop
+}
+
+' ========================================================
+' CONSTRUCTOR: array(int len, T init)
+' ========================================================
+partition "Constructor: array(len, init)" {
+    start
+    :Recibe **len**, **init**;
+    :Asigna **length = len**;
+    :Asigna **a = new T[length]**;
+    :Inicializa **i = 0**;
+    while (i < length) is (true)
+        :Asigna **a[i] = init**;
+        :Incrementa **i++**;
+    endwhile (false)
+    stop
+}
+
+' ========================================================
+' DESTRUCTOR: ~array()
+' ========================================================
+partition "Destructor: ~array()" {
+    start
+    if (a != NULL) then (true)
+        :Ejecuta **delete[] a**;
+    else (false)
+    endif
+    stop
+}
+
+' ========================================================
+' OPERADOR DE ASIGNACIÓN: operator=(array<T> &b)
+' ========================================================
+partition "Operador: operator=(b)" {
+    start
+    :Recibe referencia **&b**;
+    if (a != NULL) then (true)
+        :Ejecuta **delete[] a**;
+    else (false)
+    endif
+    :Asigna **a = b.a**;
+    :Asigna **b.a = NULL**;
+    :Asigna **length = b.length**;
+    :Retorna ***this**;
+    stop
+}
+
+' ========================================================
+' OPERADOR DE INDEXACIÓN: operator[](int i)
+' ========================================================
+partition "Operador: operator[](i)" {
+    start
+    :Recibe índice **i**;
+    :Evalúa **assert(i >= 0 && i < length)**;
+    :Retorna referencia **a[i]**;
+    stop
+}
+
+' ========================================================
+' OPERADOR DE ADICIÓN DE PUNTEROS: operator+(int i)
+' ========================================================
+partition "Operador: operator+(i)" {
+    start
+    :Recibe entero **i**;
+    :Retorna dirección **&a[i]**;
+    stop
+}
+
+' ========================================================
+' MÉTODO: swap(int i, int j)
+' ========================================================
+partition "Método: swap(i, j)" {
+    start
+    :Recibe índices **i**, **j**;
+    :Declara **T x = a[i]**;
+    :Asigna **a[i] = a[j]**;
+    :Asigna **a[j] = x**;
+    stop
+}
+
+' ========================================================
+' MÉTODO: reverse()
+' ========================================================
+partition "Método: reverse()" {
+    start
+    :Inicializa **i = 0**;
+    while (i < length / 2) is (true)
+        :Llama a **swap(i, length - i - 1)**;
+        :Incrementa **i++**;
+    endwhile (false)
+    stop
+}
+
+' ========================================================
+' MÉTODO ESTÁTICO: copyOfRange(array<T> &a0, array<T> &a, int i, int j)
+' ========================================================
+partition "Método Estático: copyOfRange(a0, a, i, j)" {
+    start
+    :Recibe **&a0**, **&a**, **i**, **j**;
+    :Instancia arreglo temporal **array<T> b(j - i)**;
+    :Ejecuta **std::copy(a.a, a.a + j - i, b.a)**;
+    :Asigna **a0 = b** (Llama a operator=);
+    stop
+}
+
+' ========================================================
+' MÉTODO: fill(T x)
+' ========================================================
+partition "Método: fill(x)" {
+    start
+    :Recibe valor **x**;
+    :Ejecuta **std::fill(a, a + length, x)**;
+    stop
+}
+@enduml

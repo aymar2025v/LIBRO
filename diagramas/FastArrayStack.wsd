@@ -1,0 +1,72 @@
+@startuml FastArrayStack
+skinparam Monochrome true
+skinparam BorderColor Black
+skinparam BackgroundColor White
+
+' ========================================================
+' CONSTRUCTOR: FastArrayStack()
+' ========================================================
+partition "Constructor: FastArrayStack()" {
+    start
+    :Invoca constructor base **ArrayStack<T>()**;
+    :Hereda miembros protegidos **a** y **n**;
+    stop
+}
+
+' ========================================================
+' DESTRUCTOR: ~FastArrayStack()
+' ========================================================
+partition "Destructor: ~FastArrayStack()" {
+    start
+    :Destrucción implícita de la clase derivada y base;
+    stop
+}
+
+' ========================================================
+' MÉTODO VIRTUAL PROTEGIDO OPRTIMIZADO: resize()
+' ========================================================
+partition "Método Protegido: resize() [Optimizado]" {
+    start
+    :Calcula tamaño óptimo llamando a **max(1, 2 * n)**;
+    :Instancia arreglo temporal **array<T> b(nuevo_tamano)**;
+    :Ejecuta copia optimizada en bloque:
+    **std::copy(a + 0, a + n, b + 0)**;
+    :Asigna **a = b** (Actualiza puntero y libera viejo arreglo);
+    stop
+}
+
+' ========================================================
+' MÉTODO VIRTUAL OPTIMIZADO: add(int i, T x)
+' ========================================================
+partition "Método: add(i, x) [Optimizado]" {
+    start
+    :Recibe índice **i**, valor **x**;
+    if (n + 1 > a.length) then (true)
+        :Llama a **resize()**;
+    else (false)
+    endif
+    :Desplaza bloques de memoria hacia atrás:
+    **std::copy_backward(a + i, a + n, a + n + 1)**;
+    :Asigna **a[i] = x**;
+    :Incrementa el contador **n++**;
+    stop
+}
+
+' ========================================================
+' MÉTODO VIRTUAL OPTIMIZADO: remove(int i)
+' ========================================================
+partition "Método: remove(i) [Optimizado]" {
+    start
+    :Recibe índice **i**;
+    :Declara y almacena **T x = a[i]**;
+    :Desplaza bloques de memoria hacia adelante:
+    **std::copy(a + i + 1, a + n, a + i)**;
+    :Decrementa el contador **n--**;
+    if (a.length >= 3 * n) then (true)
+        :Llama a **resize()**;
+    else (false)
+    endif
+    :Retorna el elemento eliminado **x**;
+    stop
+}
+@enduml

@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galaxia Cinemática Realista</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #010207;
+            color: #edf5ff;
+            font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        .hud {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: clamp(1.25rem, 4vw, 3.5rem);
+            pointer-events: none;
+            background: linear-gradient(115deg, rgba(1, 4, 14, .82), transparent 42%, rgba(5, 19, 33, .12));
+        }
+        .intro, .controls {
+            pointer-events: auto;
+            width: min(100%, 24rem);
+        }
+        .eyebrow {
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+            color: #79e5ff;
+            font-size: .7rem;
+            font-weight: 700;
+            letter-spacing: .2em;
+            text-transform: uppercase;
+        }
+        .eyebrow::before {
+            content: "";
+            width: 2rem;
+            height: 1px;
+            background: #79e5ff;
+            box-shadow: 0 0 10px #79e5ff;
+        }
+        h1 {
+            margin-top: .7rem;
+            max-width: 10ch;
+            font-family: Georgia, serif;
+            font-size: clamp(2.6rem, 7vw, 5.7rem);
+            font-weight: 400;
+            line-height: .9;
+            letter-spacing: 0;
+            text-shadow: 0 0 24px rgba(120, 220, 255, .25);
+        }
+        .description {
+            max-width: 19rem;
+            margin-top: 1.1rem;
+            color: #a9b8cf;
+            font-size: .92rem;
+            line-height: 1.6;
+        }
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            color: #9eafc8;
+            font-size: .74rem;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+        button {
+            display: grid;
+            width: 2.7rem;
+            height: 2.7rem;
+            place-items: center;
+            border: 1px solid rgba(150, 220, 255, .45);
+            border-radius: 50%;
+            background: rgba(8, 25, 42, .65);
+            color: #e9fbff;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background .2s, transform .2s, box-shadow .2s;
+        }
+        button:hover, button:focus-visible {
+            background: rgba(24, 87, 112, .8);
+            box-shadow: 0 0 20px rgba(76, 215, 255, .35);
+            outline: none;
+            transform: translateY(-2px);
+        }
+        .status { color: #effaff; }
+        @media (max-width: 600px) {
+            .hud { padding: 1.25rem; }
+            .description { font-size: .8rem; }
+            .controls { margin-bottom: .3rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="galaxyCanvas"></canvas>
+    <main class="hud">
+        <section class="intro" aria-label="Información de la galaxia">
+            <div class="eyebrow">Observatorio 04 / Espiral viva</div>
+            <h1>Más allá de la luz.</h1>
+            <p class="description">Una galaxia en movimiento. Acerca el cursor al núcleo y observa cómo responde el polvo estelar.</p>
+        </section>
+        <div class="controls">
+            <button id="pauseButton" type="button" aria-label="Pausar animación" title="Pausar animación">Ⅱ</button>
+            <button id="refreshButton" type="button" aria-label="Regenerar galaxia" title="Regenerar galaxia">↻</button>
+            <span class="status" id="status">SEÑAL ESTABLE · 6.000 ESTRELLAS</span>
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('galaxyCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Parámetros de la simulación
+        const starCount = 6000; 
+        const nebulaCount = 45; // Nubes gaseosas de fondo
+        const stars = [];
+        const nebulas = [];
+        const arms = 2; // Dos brazos principales densos (estilo Vía Láctea)
+        const armAngle = (Math.PI * 2) / arms;
+        const diskTilt = 0.58;
+        const pointer = { x: 0, y: 0, active: false };
+        let isPaused = false;
+        let previousTime = 0;
+
+        // Clase para el Gas / Nebulosa Interestelar
+        class Nebula {
+            constructor() {
+                const maxRadius = Math.min(canvas.width, canvas.height) * 0.4;
+                this.distance = Math.pow(Math.random(), 1.5) * maxRadius; // Concentradas hacia el centro
+                const armOffset = (Math.floor(Math.random() * arms)) * armAngle;
+                this.angle = (this.distance * 0.012) + armOffset + (Math.random() - 0.5) * 0.6;
+                this.size = Math.random() * 80 + 40; // Nubes grandes difusas
+                this.height = (Math.random() - 0.5) * (8 + this.distance * 0.025);
+                this.speed = 0.000035 + 0.00042 / Math.sqrt(this.distance + 30);
+                
+                // Tonos cósmicos: Magenta, Púrpura y Cian oscuro
+                const rand = Math.random();
+                if (rand < 0.4) this.color = `rgba(138, 43, 226, ${Math.random() * 0.04 + 0.01})`;
+                else if (rand < 0.8) this.color = `rgba(255, 0, 128, ${Math.random() * 0.03 + 0.01})`;
+                else this.color = `rgba(0, 191, 255, ${Math.random() * 0.03 + 0.01})`;
+            }
+
+            update() {
+                this.angle += this.speed * this.deltaTime;
+            }
+
+            draw() {
+                const cx = canvas.width / 2;
+                const cy = canvas.height / 2;
+                const x = cx + Math.cos(this.angle) * this.distance;
+                const y = cy + Math.sin(this.angle) * this.distance * diskTilt + this.height;
+
+                const grad = ctx.createRadialGradient(x, y, 0, x, y, this.size);
+                grad.addColorStop(0, this.color);
+                grad.addColorStop(1, 'rgba(0,0,0,0)');
+
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(x, y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Clase para las Estrellas
+        class Star {
+            constructor() {
+                this.init();
+            }
+
+            init() {
+                const maxRadius = Math.min(canvas.width, canvas.height) * 0.45;
+                // Distribución exponencial: muchas más estrellas en el núcleo que en los bordes
+                this.distance = Math.pow(Math.random(), 2.2) * maxRadius + 2; 
+                
+                const armOffset = (Math.floor(Math.random() * arms)) * armAngle;
+                // Fórmula de espiral logarítmica real
+                this.angle = (this.distance * 0.015) + armOffset;
+                
+                // Dispersión tridimensional simulada
+                const scatter = (Math.random() - 0.5) * (0.35 + (this.distance * 0.001));
+                this.angle += scatter;
+                this.height = (Math.random() - 0.5) * (1.5 + this.distance * 0.018);
+
+                // Una curva de rotación galáctica: el centro gira más rápido y el disco exterior se estabiliza.
+                this.speed = 0.000045 + 0.0005 / Math.sqrt(this.distance + 25);
+
+                this.size = Math.random() * 1.2 + 0.2;
+                this.brightness = Math.random() * 0.6 + 0.4;
+
+                // Clasificación estelar por color (Tipos espectrales)
+                const randColor = Math.random();
+                if (this.distance < 45) {
+                    // Bulbo central: Estrellas viejas amarillas/blancas hiperdensas
+                    this.color = `rgba(255, 235, 210, ${this.brightness})`;
+                } else {
+                    if (randColor < 0.6) {
+                        this.color = `rgba(175, 215, 255, ${this.brightness})`; // Gigantes azules jóvenes
+                    } else if (randColor < 0.9) {
+                        this.color = `rgba(255, 255, 255, ${this.brightness})`; // Secuencia principal
+                    } else {
+                        this.color = `rgba(255, 130, 130, ${this.brightness * 1.3})`; // Gigantes rojas (más brillantes)
+                        this.size += 0.5; 
+                    }
+                }
+            }
+
+            update() {
+                this.angle += this.speed * this.deltaTime;
+            }
+
+            draw() {
+                const cx = canvas.width / 2;
+                const cy = canvas.height / 2;
+                const x = cx + Math.cos(this.angle) * this.distance;
+                const y = cy + Math.sin(this.angle) * this.distance * diskTilt + this.height;
+
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(x, y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Crear la estructura galáctica
+        function createGalaxy() {
+            stars.length = 0;
+            nebulas.length = 0;
+            for (let i = 0; i < nebulaCount; i++) nebulas.push(new Nebula());
+            for (let i = 0; i < starCount; i++) stars.push(new Star());
+        }
+
+        // Bucle principal de animación
+        function animate(time = 0) {
+            const frameTime = Math.min(time - previousTime || 16.67, 40);
+            previousTime = time;
+            stars.forEach(star => { star.deltaTime = frameTime; });
+            nebulas.forEach(nebula => { nebula.deltaTime = frameTime; });
+            // Fondo con un sutil vaciado para mantener el contraste estelar
+            ctx.fillStyle = 'rgba(1, 1, 3, 0.28)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Modo 'screen' para que las nubes gaseosas se fusionen y brillen de manera realista
+            ctx.globalCompositeOperation = 'screen';
+
+            // 1. Dibujar gas y polvo estelar primero (Fondo galáctico)
+            nebulas.forEach(nebula => {
+                if (!isPaused) nebula.update();
+                nebula.draw();
+            });
+
+            // 2. Dibujar el horizonte de sucesos y el brillo del Núcleo Activo (AGN)
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const offsetX = pointer.active ? pointer.x * 10 : 0;
+            const offsetY = pointer.active ? pointer.y * 10 : 0;
+            const coreGrad = ctx.createRadialGradient(cx + offsetX, cy + offsetY, 0, cx + offsetX, cy + offsetY, 70);
+            coreGrad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+            coreGrad.addColorStop(0.15, 'rgba(255, 230, 180, 0.8)');
+            coreGrad.addColorStop(0.4, 'rgba(150, 50, 200, 0.2)');
+            coreGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            
+            ctx.fillStyle = coreGrad;
+            ctx.beginPath();
+            ctx.arc(cx + offsetX, cy + offsetY, 70, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 3. Dibujar las estrellas encima del gas
+            ctx.globalCompositeOperation = 'source-over';
+            stars.forEach(star => {
+                if (!isPaused) star.update();
+                star.draw();
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        createGalaxy();
+        animate();
+
+        // Regenerar si la pantalla cambia drásticamente de tamaño para no perder proporción
+        window.addEventListener('resize', createGalaxy);
+
+        window.addEventListener('pointermove', event => {
+            pointer.x = (event.clientX / window.innerWidth - 0.5);
+            pointer.y = (event.clientY / window.innerHeight - 0.5);
+            pointer.active = true;
+        });
+        window.addEventListener('pointerleave', () => { pointer.active = false; });
+
+        document.getElementById('pauseButton').addEventListener('click', event => {
+            isPaused = !isPaused;
+            event.currentTarget.textContent = isPaused ? '▶' : 'Ⅱ';
+            event.currentTarget.setAttribute('aria-label', isPaused ? 'Reanudar animación' : 'Pausar animación');
+            document.getElementById('status').textContent = isPaused ? 'OBSERVACIÓN FIJA · PAUSADA' : 'SEÑAL ESTABLE · 6.000 ESTRELLAS';
+        });
+        document.getElementById('refreshButton').addEventListener('click', () => {
+            createGalaxy();
+        });
+    </script>
+</body>
+</html>

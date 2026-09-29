@@ -1,0 +1,164 @@
+@startuml DLList
+skinparam Monochrome true
+skinparam BorderColor Black
+skinparam BackgroundColor White
+
+' ========================================================
+' CONSTRUCTOR: DLList()
+' ========================================================
+partition "Constructor: DLList()" {
+    start
+    :Enlaza el centinela circularmente consigo mismo:\n**dummy.next = &dummy**\n**dummy.prev = &dummy**;
+    :Asigna **n = 0**;
+    stop
+}
+
+' ========================================================
+' DESTRUCTOR: ~DLList()
+' ========================================================
+partition "Destructor: ~DLList()" {
+    start
+    :Llama a **clear()**;
+    stop
+}
+
+' ========================================================
+' MÉTODO: size()
+' ========================================================
+partition "Método: size()" {
+    start
+    :Retorna **n**;
+    stop
+}
+
+' ========================================================
+' MÉTODO PROTEGIDO: getNode(int i)
+' ========================================================
+partition "Método Privado: getNode(i) [Búsqueda Optimizada]" {
+    start
+    :Recibe índice **i**;
+    if (i < n / 2) then (true)
+        note right: Buscar desde el principio hacia adelante
+        :Asigna **p = dummy.next**;
+        :Inicializa **j = 0**;
+        while (j < i) is (true)
+            :Avanza **p = p->next**;
+            :Incrementa **j++**;
+        endwhile (false)
+    else (false)
+        note right: Buscar desde el final hacia atrás
+        :Asigna **p = &dummy**;
+        :Inicializa **j = n**;
+        while (j > i) is (true)
+            :Retrocede **p = p->prev**;
+            :Decrementa **j--**;
+        endwhile (false)
+    endif
+    :Retorna el puntero del nodo **p**;
+    stop
+}
+
+' ========================================================
+' MÉTODO PROTEGIDO: addBefore(Node *w, T x)
+' ========================================================
+partition "Método Privado: addBefore(w, x)" {
+    start
+    :Recibe nodo de referencia ***w**, valor **x**;
+    :Asigna memoria **Node *u = new Node**;
+    :Asigna valor **u->x = x**;
+    note right: Reconfigura los enlaces de punteros\npara el nuevo nodo 'u' antes de 'w'
+    :Asigna **u->prev = w->prev**;
+    :Asigna **u->next = w**;
+    :Asigna **u->next->prev = u**;
+    :Asigna **u->prev->next = u**;
+    :Incrementa contador **n++**;
+    :Retorna puntero del nuevo nodo **u**;
+    stop
+}
+
+' ========================================================
+' MÉTODO PROTEGIDO: remove(Node *w)
+' ========================================================
+partition "Método Privado: remove(w)" {
+    start
+    :Recibe nodo ***w**;
+    note right: Desenlaza el nodo omitiéndolo en la secuencia
+    :Asigna **w->prev->next = w->next**;
+    :Asigna **w->next->prev = w->prev**;
+    :Libera memoria física **delete w**;
+    :Decrementa contador **n--**;
+    stop
+}
+
+' ========================================================
+' MÉTODO: get(int i)
+' ========================================================
+partition "Método: get(i)" {
+    start
+    :Recibe índice **i**;
+    :Llama a **getNode(i)** y extrae su campo **x**;
+    :Retorna el valor;
+    stop
+}
+
+' ========================================================
+' MÉTODO: set(int i, T x)
+' ========================================================
+partition "Método: set(i, x)" {
+    start
+    :Recibe índice **i**, valor **x**;
+    :Obtiene el nodo objetivo llamando a **u = getNode(i)**;
+    :Resguarda viejo valor **T y = u->x**;
+    :Reemplaza con nuevo valor **u->x = x**;
+    :Retorna viejo valor **y**;
+    stop
+}
+
+' ========================================================
+' MÉTODO VIRTUAL: add(int i, T x)
+' ========================================================
+partition "Método: add(i, x)" {
+    start
+    :Recibe índice **i**, valor **x**;
+    :Busca el nodo en la posición e inserta antes:\n**addBefore(getNode(i), x)**;
+    stop
+}
+
+' ========================================================
+' MÉTODO EN LÍNEA: add(T x)
+' ========================================================
+partition "Método: add(x)" {
+    start
+    :Recibe valor **x**;
+    :Llama a **add(size(), x)** para insertar al final;
+    stop
+}
+
+' ========================================================
+' MÉTODO VIRTUAL: remove(int i)
+' ========================================================
+partition "Método: remove(i)" {
+    start
+    :Recibe índice **i**;
+    :Obtiene el nodo objetivo llamando a **w = getNode(i)**;
+    :Resguarda su valor **T x = w->x**;
+    :Llama al método privado **remove(w)**;
+    :Retorna el valor eliminado **x**;
+    stop
+}
+
+' ========================================================
+' MÉTODO VIRTUAL: clear()
+' ========================================================
+partition "Método: clear()" {
+    start
+    :Inicializa puntero de rastreo desde el inicio real:\n**u = dummy.next**;
+    while (u != &dummy) is (true)
+        :Guarda el siguiente enlace **Node *w = u->next**;
+        :Libera el nodo actual **delete u**;
+        :Avanza el rastreo **u = w**;
+    endwhile (false)
+    :Reinicia contador **n = 0**;
+    stop
+}
+@enduml

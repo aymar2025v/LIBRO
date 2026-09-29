@@ -1,0 +1,147 @@
+@startuml RootishArrayStack
+skinparam Monochrome true
+skinparam BorderColor Black
+skinparam BackgroundColor White
+
+' ========================================================
+' CONSTRUCTOR: RootishArrayStack()
+' ========================================================
+partition "Constructor: RootishArrayStack()" {
+    start
+    :Inicializa la estructura interna **blocks**;
+    :Asigna **n = 0**;
+    stop
+}
+
+' ========================================================
+' DESTRUCTOR: ~RootishArrayStack()
+' ========================================================
+partition "Destructor: ~RootishArrayStack()" {
+    start
+    :Destrucción implícita de objetos miembros;
+    stop
+}
+
+' ========================================================
+' MÉTODO: size()
+' ========================================================
+partition "Método: size()" {
+    start
+    :Retorna **n**;
+    stop
+}
+
+' ========================================================
+' MÉTODO EN LÍNEA PROTEGIDO: i2b(int i)
+' ========================================================
+partition "Método Protegido: i2b(i) [Índice a Bloque]" {
+    start
+    :Recibe índice **i**;
+    :Calcula ecuación cuadrática:\n**db = (-3.0 + sqrt(9 + 8 * i)) / 2.0**;
+    :Aplica techo aritmético:\n**b = (int)ceil(db)**;
+    :Retorna bloque **b**;
+    stop
+}
+
+' ========================================================
+' MÉTODO: get(int i)
+' ========================================================
+partition "Método: get(i)" {
+    start
+    :Recibe índice **i**;
+    :Llama a **b = i2b(i)**;
+    :Calcula índice interno del bloque:\n**j = i - b * (b + 1) / 2**;
+    :Retorna el elemento en **blocks.get(b)[j]**;
+    stop
+}
+
+' ========================================================
+' MÉTODO: set(int i, T x)
+' ========================================================
+partition "Método: set(i, x)" {
+    start
+    :Recibe índice **i**, valor **x**;
+    :Llama a **b = i2b(i)**;
+    :Calcula índice interno del bloque:\n**j = i - b * (b + 1) / 2**;
+    :Resguarda viejo valor **T y = blocks.get(b)[j]**;
+    :Asigna **blocks.get(b)[j] = x**;
+    :Retorna viejo valor **y**;
+    stop
+}
+
+' ========================================================
+' MÉTODO VIRTUAL: add(int i, T x)
+' ========================================================
+partition "Método: add(i, x)" {
+    start
+    :Recibe índice **i**, valor **x**;
+    :Asigna **r = blocks.size()**;
+    if (r * (r + 1) / 2 < n + 1) then (true)
+        :Llama a **grow()**;
+    else (false)
+    endif
+    :Incrementa contador **n++**;
+    :Inicializa **j = n - 1** (Desplazamiento a la derecha);
+    while (j > i) is (true)
+        :Desplaza usando mutadores internos:\n**set(j, get(j - 1))**;
+        :Decrementa **j--**;
+    endwhile (false)
+    :Guarda elemento llamando a **set(i, x)**;
+    stop
+}
+
+' ========================================================
+' MÉTODO VIRTUAL: remove(int i)
+' ========================================================
+partition "Método: remove(i)" {
+    start
+    :Recibe índice **i**;
+    :Resguarda valor eliminado **T x = get(i)**;
+    :Inicializa **j = i** (Desplazamiento a la izquierda);
+    while (j < n - 1) is (true)
+        :Desplaza usando mutadores internos:\n**set(j, get(j + 1))**;
+        :Incrementa **j++**;
+    endwhile (false)
+    :Decrementa contador **n--**;
+    :Asigna **r = blocks.size()**;
+    if ((r - 2) * (r - 1) / 2 >= n) then (true)
+        :Llama a **shrink()**;
+    else (false)
+    endif
+    :Retorna **x**;
+    stop
+}
+
+' ========================================================
+' MÉTODO PROTEGIDO: grow()
+' ========================================================
+partition "Método Protegido: grow()" {
+    start
+    :Asigna nuevo bloque dinámico de tamaño secuencial:\n**blocks.add(blocks.size(), new T[blocks.size() + 1])**;
+    stop
+}
+
+' ========================================================
+' MÉTODO PROTEGIDO: shrink()
+' ========================================================
+partition "Método Protegido: shrink()" {
+    start
+    :Asigna **r = blocks.size()**;
+    while (r > 0 && (r - 2) * (r - 1) / 2 >= n) is (true)
+        :Remueve el último bloque y libera su memoria:\n**delete [] blocks.remove(blocks.size() - 1)**;
+        :Decrementa contador de control **r--**;
+    endwhile (false)
+    stop
+}
+
+' ========================================================
+' MÉTODO VIRTUAL: clear()
+' ========================================================
+partition "Método: clear()" {
+    start
+    while (blocks.size() > 0) is (true)
+        :Remueve y libera el bloque superior:\n**delete [] blocks.remove(blocks.size() - 1)**;
+    endwhile (false)
+    stop
+}
+@enduml

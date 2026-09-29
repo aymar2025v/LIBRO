@@ -1,0 +1,1043 @@
+\documentclass[11pt]{book}
+
+% ---------- Paquetes ----------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{graphicx}
+\usepackage[most]{tcolorbox}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{geometry}
+\usepackage{caption}
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+\geometry{margin=2.5cm}
+
+% ---------- Entornos de teorema ----------
+\theoremstyle{plain}
+\newtheorem{teorema}{Teorema}[chapter]
+\newtheorem{lema}{Lema}[chapter]
+
+% ---------- Estilo de código C++ ----------
+\definecolor{codebg}{RGB}{249,249,249}
+\definecolor{codeframe}{RGB}{204,204,204}
+
+\lstdefinestyle{cpp}{
+    language=C++,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue!60!black}\bfseries,
+    commentstyle=\color{green!40!black}\itshape,
+    stringstyle=\color{orange!70!black},
+    numbers=none,
+    breaklines=true,
+    frame=single,
+    rulecolor=\color{codeframe},
+    backgroundcolor=\color{codebg},
+    tabsize=4,
+    showstringspaces=false,
+    xleftmargin=2pt,
+    xrightmargin=2pt,
+    aboveskip=8pt,
+    belowskip=8pt
+}
+\lstset{style=cpp}
+
+% Encabezado tipo "clase" que aparece antes de cada bloque de código
+% en el original (p.ej. "ArrayStack", "array", "FastSqrt", ...)
+\newcommand{\claseheader}[1]{\noindent\textbf{#1}\par\vspace{-4pt}}
+
+% ---------- Nombres en español (sin depender de babel) ----------
+\renewcommand{\chaptername}{Capítulo}
+\renewcommand{\figurename}{Figura}
+\renewcommand{\contentsname}{Índice general}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!50!black,
+    citecolor=blue!50!black,
+    urlcolor=blue!50!black
+}
+
+\begin{document}
+
+\setcounter{chapter}{1}
+\chapter{Listas Basadas en Arreglos}
+\label{ch:listas-arreglos}
+
+En este capítulo, estudiaremos implementaciones de las interfaces \texttt{List} y \texttt{Queue} donde los datos subyacentes se almacenan en un arreglo, llamado arreglo de respaldo (\emph{backing array}). La siguiente tabla resume los tiempos de ejecución de las operaciones para las estructuras de datos presentadas en este capítulo:
+
+\begin{center}
+\begin{tabular}{lcc}
+\hline
+ & \texttt{get(i)/set(i,x)} & \texttt{add(i,x)/remove(i)} \\
+\hline
+\texttt{ArrayStack} & $O(1)$ & $O(n-i)$ \\
+\texttt{ArrayDeque} & $O(1)$ & $O(\min\{i, n-i\})$ \\
+\texttt{DualArrayDeque} & $O(1)$ & $O(\min\{i, n-i\})$ \\
+\texttt{RootishArrayStack} & $O(1)$ & $O(n-i)$ \\
+\hline
+\end{tabular}
+\end{center}
+
+Las estructuras de datos que funcionan almacenando datos en un solo arreglo tienen muchas ventajas y limitaciones en común:
+
+\begin{itemize}
+    \item Los arreglos ofrecen acceso en tiempo constante a cualquier valor en el arreglo. Esto es lo que permite que \texttt{get(i)} y \texttt{set(i, x)} se ejecuten en tiempo constante.
+
+    \item Los arreglos no son muy dinámicos. Agregar o eliminar un elemento cerca de la mitad de una lista significa que un gran número de elementos en el arreglo deben desplazarse para hacer espacio para el elemento recién agregado o para llenar el vacío creado por el elemento eliminado. Es por esto que las operaciones \texttt{add(i, x)} y \texttt{remove(i)} tienen tiempos de ejecución que dependen de $n$ y de $i$.
+
+    \item Los arreglos no pueden expandirse ni contraerse. Cuando el número de elementos en la estructura de datos excede el tamaño del arreglo de respaldo, se debe asignar un nuevo arreglo y los datos del arreglo antiguo deben copiarse en el nuevo arreglo. Esta es una operación costosa.
+\end{itemize}
+
+El tercer punto es importante. Los tiempos de ejecución citados en la tabla anterior no incluyen el costo asociado con el crecimiento y la contracción del arreglo de respaldo. Veremos que, si se gestiona cuidadosamente, el costo de hacer crecer y encoger el arreglo de respaldo no añade mucho al costo de una \emph{operación promedio}. Más precisamente, si comenzamos con una estructura de datos vacía, y realizamos cualquier secuencia de $m$ operaciones \texttt{add(i,x)} o \texttt{remove(i)}, entonces el costo total de hacer crecer y encoger el arreglo de respaldo, sobre la secuencia completa de $m$ operaciones es $O(m)$. Aunque algunas operaciones individuales son más costosas, el costo amortizado, cuando se amortiza sobre todas las $m$ operaciones, es solo $O(1)$ por operación.
+
+En este capítulo, y a lo largo de este libro, será conveniente tener arreglos que hagan un seguimiento de su tamaño. Los arreglos habituales de C++ no hacen esto, por lo que hemos definido una clase, \texttt{array}, que hace un seguimiento de su longitud. La implementación de esta clase es sencilla. Se implementa como un arreglo estándar de C++, \texttt{a}, y un entero, \texttt{length}:
+
+\claseheader{array}
+\begin{lstlisting}
+T *a;
+int length;
+\end{lstlisting}
+
+El tamaño de un \texttt{array} se especifica en el momento de la creación:
+
+\claseheader{array}
+\begin{lstlisting}
+array(int len) {
+    length = len;
+    a = new T[length];
+}
+\end{lstlisting}
+
+Los elementos de un arreglo pueden indexarse:
+
+\claseheader{array}
+\begin{lstlisting}
+T& operator[](int i) {
+    assert(i >= 0 && i < length);
+    return a[i];
+}
+\end{lstlisting}
+
+Por último, cuando se asigna un array a otro, se trata simplemente de una manipulación de punteros que requiere un tiempo constante:
+
+\claseheader{array}
+\begin{lstlisting}
+array<T>& operator=(array<T> &b) {
+    if (a != NULL) delete[] a;
+    a = b.a;
+    b.a = NULL;
+    length = b.length;
+    return *this;
+}
+\end{lstlisting}
+
+\section{ArrayStack: Operaciones Rápidas de Pila Usando un Arreglo}
+\label{sec:arraystack}
+
+Un \texttt{ArrayStack} implementa la interfaz de lista utilizando un arreglo \texttt{a}, llamado el \emph{arreglo de respaldo}. El elemento de la lista con índice \texttt{i} se almacena en \texttt{a[i]}. La mayoría de las veces, \texttt{a} es más grande de lo estrictamente necesario, por lo que se utiliza un entero \texttt{n} para llevar un registro del número de elementos realmente almacenados en \texttt{a}. De esta manera, los elementos de la lista se almacenan en \texttt{a[0], ..., a[n-1]} y, en todo momento, \texttt{a.length >= n}.
+
+\claseheader{ArrayStack}
+\begin{lstlisting}
+array<T> a;
+int n;
+int size() {
+    return n;
+}
+\end{lstlisting}
+
+\subsection{Los Fundamentos}
+
+Acceder y modificar los elementos de un \texttt{ArrayStack} usando \texttt{get(i)} y \texttt{set(i,x)} es trivial. Después de realizar las comprobaciones de límites necesarias, simplemente devolvemos o establecemos, respectivamente, \texttt{a[i]}.
+
+\claseheader{ArrayStack}
+\begin{lstlisting}
+T get(int i) {
+    return a[i];
+}
+T set(int i, T x) {
+    T y = a[i];
+    a[i] = x;
+    return y;
+}
+\end{lstlisting}
+
+Las operaciones de añadir y eliminar elementos de un \texttt{ArrayStack} se ilustran en la Figura~\ref{fig:2-1}. Para implementar la operación \texttt{add(i, x)}, primero comprobamos si \texttt{a} está ya lleno. Si es así, llamamos al método \texttt{resize()} para incrementar el tamaño de \texttt{a}. Cómo se implementa \texttt{resize()} se discutirá más adelante. Por ahora, es suficiente saber que, tras una llamada a \texttt{resize()}, podemos estar seguros de que \texttt{a.length > n}. Una vez solucionado esto, ahora desplazamos los elementos \texttt{a[i],...,a[n-1]} una posición a la derecha para hacer sitio para \texttt{x}, establecemos \texttt{a[i]} igual a \texttt{x}, e incrementamos \texttt{n}.
+
+\claseheader{ArrayStack}
+\begin{lstlisting}
+void add(int i, T x) {
+    if (n + 1 > a.length) resize();
+    for (int j = n; j > i; j--)
+        a[j] = a[j - 1];
+    a[i] = x;
+    n++;
+}
+\end{lstlisting}
+
+Si ignoramos el costo de la posible llamada a \texttt{resize()}, entonces el costo de la operación \texttt{add(i,x)} es proporcional al número de elementos que tenemos que desplazar para hacer espacio para \texttt{x}. Por lo tanto, el costo de esta operación (ignorando el costo de redimensionar \texttt{a}) es $O(n-i)$.
+
+Implementar la operación \texttt{remove(i)} es similar. Desplazamos los elementos \texttt{a[i+1],...,a[n-1]} una posición a la izquierda (sobrescribiendo \texttt{a[i]}) y decrementamos el valor de \texttt{n}. Después de hacer esto, comprobamos si \texttt{n} se está volviendo mucho más pequeño que \texttt{a.length} verificando si \texttt{a.length}~$\ge 3n$. Si es así, entonces llamamos a \texttt{resize()} para reducir el tamaño de \texttt{a}.
+
+\claseheader{ArrayStack}
+\begin{lstlisting}
+T remove(int i) {
+    T x = a[i];
+    for (int j = i; j < n - 1; j++)
+        a[j] = a[j + 1];
+    n--;
+    if (a.length >= 3 * n) resize();
+    return x;
+}
+\end{lstlisting}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.75\textwidth]{figs/fig2_1.png}
+    \caption{Una secuencia de operaciones \texttt{add(i,x)} y \texttt{remove(i)} en un \texttt{ArrayStack}. Las flechas denotan elementos que están siendo copiados. Las operaciones que resultan en una llamada a \texttt{resize()} están marcadas con un asterisco.}
+    \label{fig:2-1}
+\end{figure}
+
+Si ignoramos el costo del método \texttt{resize()}, el costo de una operación \texttt{remove(i)} es proporcional al número de elementos que desplazamos, que es $O(n-i)$.
+
+\subsection{Crecimiento y Contracción}
+
+El método \texttt{resize()} es bastante sencillo; asigna un nuevo arreglo \texttt{b} cuyo tamaño es $2n$ y copia los $n$ elementos de \texttt{a} en las primeras $n$ posiciones de \texttt{b}, y luego establece \texttt{a} en \texttt{b}. Por lo tanto, después de una llamada a \texttt{resize()}, \texttt{a.length = 2n}.
+
+\claseheader{ArrayStack}
+\begin{lstlisting}
+void resize() {
+    array<T> b(max(2 * n, 1));
+    for (int i = 0; i < n; i++)
+        b[i] = a[i];
+    a = b;
+}
+\end{lstlisting}
+
+Analizar el costo real de la operación \texttt{resize()} es fácil. Asigna un arreglo \texttt{b} de tamaño $2n$ y copia los $n$ elementos de \texttt{a} en \texttt{b}. Esto toma un tiempo $O(n)$.
+
+El análisis del tiempo de ejecución de la sección anterior ignoró el costo de las llamadas a \texttt{resize()}. En esta sección analizamos este costo utilizando una técnica conocida como análisis amortizado. Esta técnica no intenta determinar el costo de redimensionar durante cada operación individual \texttt{add(i,x)} y \texttt{remove(i)}. En su lugar, considera el costo de todas las llamadas a \texttt{resize()} durante una secuencia de $m$ llamadas a \texttt{add(i,x)} o \texttt{remove(i)}. En particular, mostraremos:
+
+\begin{lema}
+Si se crea un \texttt{ArrayStack} vacío y se realiza cualquier secuencia de $m \ge 1$ llamadas a \texttt{add(i,x)} y \texttt{remove(i)}, entonces el tiempo total empleado durante todas las llamadas a \texttt{resize()} es $O(m)$.
+\end{lema}
+
+\begin{proof}
+Demostraremos que cada vez que se llama a \texttt{resize()}, el número de llamadas a \texttt{add} o \texttt{remove} desde la última llamada a \texttt{resize()} es al menos $n/2 - 1$. Por lo tanto, si $n_i$ denota el valor de $n$ durante la $i$-ésima llamada a \texttt{resize()} y $r$ denota el número de llamadas a \texttt{resize()}, entonces el número total de llamadas a \texttt{add(i,x)} o \texttt{remove(i)} es al menos
+
+$$
+\sum_{i=1}^{r} (n_i / 2 - 1) \le m ,
+$$
+
+lo cual es equivalente a
+
+$$
+\sum_{i=1}^{r} n_i \le 2m + 2r .
+$$
+
+Por otro lado, el tiempo total empleado durante todas las llamadas a \texttt{resize()} es
+
+$$
+\sum_{i=1}^{r} O(n_i) \le O(m + r) = O(m) ,
+$$
+
+dado que $r$ no es mayor que $m$. Todo lo que queda es demostrar que el número de llamadas a \texttt{add(i,x)} o \texttt{remove(i)} entre la $(i-1)$-ésima y la $i$-ésima llamada a \texttt{resize()} es al menos $n_i/2$.
+
+Hay dos casos a considerar. En el primer caso, \texttt{resize()} está siendo llamado por \texttt{add(i,x)} porque el arreglo de respaldo \texttt{a} está lleno, es decir, \texttt{a.length = n = $n_i$}. Consideremos la llamada anterior a \texttt{resize()}: después de esta llamada anterior, el tamaño de \texttt{a} era \texttt{a.length}, pero el número de elementos almacenados en \texttt{a} era como máximo \texttt{a.length/2} $= n_i/2$. Pero ahora el número de elementos almacenados en \texttt{a} es $n_i = $ \texttt{a.length}, por lo que debe haber habido al menos $n_i/2$ llamadas a \texttt{add(i,x)} desde la llamada anterior a \texttt{resize()}.
+
+El segundo caso ocurre cuando \texttt{remove(i)} llama a \texttt{resize()} porque \texttt{a.length} $\ge 3n = 3n_i$. De nuevo, después de la llamada anterior a \texttt{resize()} el número de elementos almacenados en \texttt{a} era al menos \texttt{a.length/2 - 1}.\footnote{El $-1$ en esta fórmula tiene en cuenta el caso especial que ocurre cuando $n = 0$ y \texttt{a.length = 1}.} Ahora hay $n_i \le$ \texttt{a.length/3} elementos almacenados en \texttt{a}. Por lo tanto, el número de operaciones \texttt{remove(i)} desde la última llamada a \texttt{resize()} es al menos
+
+$$
+\begin{aligned}
+R &\ge \text{a.length}/2 - 1 - \text{a.length}/3 \\
+&= \text{a.length}/6 - 1 \\
+&= (\text{a.length}/3)/2 - 1 \\
+&\ge n_i/2 - 1 .
+\end{aligned}
+$$
+
+En cualquier caso, el número de llamadas a \texttt{add(i,x)} o \texttt{remove(i)} que ocurren entre la $(i-1)$-ésima llamada a \texttt{resize()} y la $i$-ésima llamada a \texttt{resize()} es al menos $n_i/2 - 1$, como se requiere para completar la prueba.
+\end{proof}
+
+\subsection{Resumen}
+
+El siguiente teorema resume el rendimiento de un \texttt{ArrayStack}:
+
+\begin{teorema}
+Un \texttt{ArrayStack} implementa la interfaz \texttt{List}. Ignorando el costo de las llamadas a \texttt{resize()}, un \texttt{ArrayStack} soporta las operaciones
+
+\begin{itemize}
+    \item \texttt{get(i)} y \texttt{set(i,x)} en tiempo $O(1)$ por operación; y
+    \item \texttt{add(i,x)} y \texttt{remove(i)} en tiempo $O(1 + n - i)$ por operación.
+\end{itemize}
+
+Además, comenzando con un \texttt{ArrayStack} vacío y realizando cualquier secuencia de $m$ operaciones \texttt{add(i,x)} y \texttt{remove(i)} resulta en un total de $O(m)$ tiempo empleado durante todas las llamadas a \texttt{resize()}.
+\end{teorema}
+
+El \texttt{ArrayStack} es una forma eficiente de implementar una Pila (\emph{Stack}). En particular, podemos implementar \texttt{push(x)} como \texttt{add(n,x)} y \texttt{pop()} como \texttt{remove(n - 1)}, en cuyo caso estas operaciones se ejecutarán en tiempo amortizado $O(1)$.
+
+\section{FastArrayStack: Un ArrayStack Optimizado}
+
+Gran parte del trabajo realizado por un \texttt{ArrayStack} implica desplazar (mediante \texttt{add(i,x)} y \texttt{remove(i)}) y copiar (mediante \texttt{resize()}) datos. En las implementaciones mostradas anteriormente, esto se hacía usando bucles \texttt{for}. Resulta que muchos entornos de programación tienen funciones específicas que son muy eficientes para copiar y mover bloques de datos. En el lenguaje de programación C, están las funciones \texttt{memcpy(d,s,n)} y \texttt{memmove(d,s,n)}. En el lenguaje C++ está el algoritmo \texttt{std::copy(a0,a1,b)}. En Java está el método \texttt{System.arraycopy(s,i,d,j,n)}.
+
+\claseheader{FastArrayStack}
+\begin{lstlisting}
+void resize() {
+    array<T> b(max(1, 2*n));
+    std::copy(a+0, a+n, b+0);
+    a = b;
+}
+void add(int i, T x) {
+    if (n + 1 > a.length) resize();
+    std::copy_backward(a+i, a+n, a+n+1);
+    a[i] = x;
+    n++;
+}
+\end{lstlisting}
+
+Estas funciones suelen estar altamente optimizadas e incluso pueden usar instrucciones de máquina especiales que pueden hacer esta copia mucho más rápido de lo que podríamos hacerlo usando un bucle \texttt{for}. Aunque el uso de estas funciones no disminuye asintóticamente los tiempos de ejecución, aún puede ser una optimización que vale la pena.
+
+En las implementaciones de C++, el uso del nativo \texttt{std::copy(a0,a1,b)} resultó en aceleraciones de un factor entre 2 y 3, dependiendo de los tipos de operaciones realizadas. Su experiencia puede variar.
+
+\section{ArrayQueue: Una Cola Basada en Arreglos}
+
+En esta sección, presentamos la estructura de datos \texttt{ArrayQueue}, que implementa una cola FIFO (primero en entrar, primero en salir); los elementos se eliminan (usando la operación \texttt{remove()}) de la cola en el mismo orden en que se agregan (usando la operación \texttt{add()}).
+
+Observe que un \texttt{ArrayStack} es una mala elección para la implementación de una cola FIFO. No es una buena elección porque debemos elegir un extremo de la lista en el cual agregar elementos y luego eliminar elementos del otro extremo. Una de las dos operaciones trabajará en la cabeza de la lista, lo que implica llamar a \texttt{add(i,x)} o \texttt{remove(i)} con un valor de $i = 0$. Esto da un tiempo de ejecución proporcional a $n$.
+
+Para obtener una implementación eficiente de una cola basada en arreglos, primero notamos que el problema sería fácil si tuviéramos un arreglo infinito \texttt{a}. Podríamos mantener un índice \texttt{j} que realice un seguimiento del siguiente elemento a eliminar y un entero \texttt{n} que cuente el número de elementos en la cola. Los elementos de la cola siempre se almacenarían en
+
+$$
+a[j], a[j+1], ..., a[j+n-1] .
+$$
+
+Inicialmente, tanto \texttt{j} como \texttt{n} se establecerían en 0. Para agregar un elemento, lo colocaríamos en \texttt{a[j + n]} e incrementaríamos \texttt{n}. Para eliminar un elemento, lo eliminaríamos de \texttt{a[j]}, incrementaríamos \texttt{j} y decrementaríamos \texttt{n}.
+
+Por supuesto, el problema con esta solución es que requiere un arreglo infinito. Un \texttt{ArrayQueue} simula esto utilizando un arreglo finito \texttt{a} y \emph{aritmética modular}. Este es el tipo de aritmética que se utiliza cuando hablamos de la hora del día. Por ejemplo, las 10:00 más cinco horas dan las 3:00. Formalmente, decimos que
+
+$$
+10 + 5 = 15 \equiv 3 \pmod{12} .
+$$
+
+Leemos la última parte de esta ecuación como ``15 es congruente con 3 módulo 12''. También podemos tratar \texttt{mod} como un operador binario, de modo que
+
+$$
+15 \bmod 12 = 3 .
+$$
+
+De manera más general, para un entero $a$ y un entero positivo $m$, $a \bmod m$ es el único entero $r \in \{0,...,m-1\}$ tal que $a = r + km$ para algún entero $k$. De manera menos formal, el valor $r$ es el resto que obtenemos cuando dividimos $a$ entre $m$. En muchos lenguajes de programación, incluido C++, el operador mod se representa usando el símbolo \texttt{\%}.\footnote{Esto a veces se conoce como el operador mod ``descerebrado'', ya que no implementa correctamente el operador mod matemático cuando el primer argumento es negativo.}
+
+La aritmética modular es útil para simular un arreglo infinito, ya que $i \bmod \text{a.length}$ siempre da un valor en el rango $0,...,\text{a.length}-1$. Usando aritmética modular podemos almacenar los elementos de la cola en las ubicaciones del arreglo
+
+$$
+a[j\%\text{a.length}], a[(j+1)\%\text{a.length}],...,a[(j+n-1)\%\text{a.length}] .
+$$
+
+Esto trata al arreglo \texttt{a} como un \emph{arreglo circular} en el cual los índices mayores que \texttt{a.length - 1} ``dan la vuelta'' al principio del arreglo.
+
+Lo único que queda por preocuparnos es asegurarnos de que el número de elementos en el \texttt{ArrayQueue} no exceda el tamaño de \texttt{a}.
+
+\claseheader{ArrayQueue}
+\begin{lstlisting}
+array<T> a;
+int j;
+int n;
+\end{lstlisting}
+
+Una secuencia de operaciones \texttt{add(x)} y \texttt{remove()} en un \texttt{ArrayQueue} se ilustra en la Figura~\ref{fig:2-2}. Para implementar \texttt{add(x)}, primero verificamos si \texttt{a} está lleno y, si es necesario, llamamos a \texttt{resize()} para incrementar el tamaño de \texttt{a}. A continuación, almacenamos \texttt{x} en \texttt{a[(j + n)\%a.length]} e incrementamos \texttt{n}.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.75\textwidth]{figs/fig2_2.png}
+    \caption{Una secuencia de operaciones \texttt{add(x)} y \texttt{remove(i)} en un \texttt{ArrayQueue}. Las flechas denotan elementos que están siendo copiados. Las operaciones que resultan en una llamada a \texttt{resize()} están marcadas con un asterisco.}
+    \label{fig:2-2}
+\end{figure}
+
+\claseheader{ArrayQueue}
+\begin{lstlisting}
+bool add(T x) {
+    if (n + 1 > a.length) resize();
+    a[(j+n) % a.length] = x;
+    n++;
+    return true;
+}
+\end{lstlisting}
+
+Para implementar \texttt{remove()}, primero almacenamos \texttt{a[j]} para poder devolverlo más tarde. A continuación, decrementamos \texttt{n} e incrementamos \texttt{j} (módulo \texttt{a.length}) estableciendo \texttt{j = (j + 1) mod a.length}. Finalmente, devolvemos el valor almacenado de \texttt{a[j]}. Si es necesario, podemos llamar a \texttt{resize()} para disminuir el tamaño de \texttt{a}.
+
+\claseheader{ArrayQueue}
+\begin{lstlisting}
+T remove() {
+    T x = a[j];
+    j = (j + 1) % a.length;
+    n--;
+    if (a.length >= 3*n) resize();
+    return x;
+}
+\end{lstlisting}
+
+Finalmente, la operación \texttt{resize()} es muy similar a la operación \texttt{resize()} de \texttt{ArrayStack}. Asigna un nuevo arreglo, \texttt{b}, de tamaño $2n$ y copia
+
+$$
+a[j], a[(j + 1)\%\text{a.length}], ..., a[(j + n - 1)\%\text{a.length}]
+$$
+
+en
+
+$$
+b[0], b[1], ..., b[n - 1]
+$$
+
+y establece \texttt{j = 0}.
+
+\claseheader{ArrayQueue}
+\begin{lstlisting}
+void resize() {
+    array<T> b(max(1, 2*n));
+    for (int k = 0; k < n; k++)
+        b[k] = a[(j+k)%a.length];
+    a = b;
+    j = 0;
+}
+\end{lstlisting}
+
+\subsection{Resumen}
+
+El siguiente teorema resume el rendimiento de la estructura de datos \texttt{ArrayQueue}:
+
+\begin{teorema}
+Un \texttt{ArrayQueue} implementa la interfaz \texttt{Queue} (FIFO). Ignorando el costo de las llamadas a \texttt{resize()}, un \texttt{ArrayQueue} soporta las operaciones \texttt{add(x)} y \texttt{remove()} en tiempo $O(1)$ por operación. Además, comenzando con un \texttt{ArrayQueue} vacío, cualquier secuencia de $m$ operaciones \texttt{add(i,x)} y \texttt{remove(i)} resulta en un total de $O(m)$ tiempo empleado durante todas las llamadas a \texttt{resize()}.
+\end{teorema}
+
+\section{ArrayDeque: Operaciones Rápidas de Deque Usando un Arreglo}
+
+El \texttt{ArrayQueue} de la sección anterior es una estructura de datos para representar una secuencia que nos permite agregar eficientemente a un extremo de la secuencia y eliminar del otro extremo. La estructura de datos \texttt{ArrayDeque} permite la adición y eliminación eficientes en ambos extremos. Esta estructura implementa la interfaz \texttt{List} utilizando la misma técnica de arreglo circular utilizada para representar un \texttt{ArrayQueue}.
+
+\claseheader{ArrayDeque}
+\begin{lstlisting}
+array<T> a;
+int j;
+int n;
+\end{lstlisting}
+
+Las operaciones \texttt{get(i)} y \texttt{set(i,x)} en un \texttt{ArrayDeque} son sencillas. Obtienen o establecen el elemento del arreglo \texttt{a[(j + i) \% a.length]}.
+
+\claseheader{ArrayDeque}
+\begin{lstlisting}
+T get(int i) {
+    return a[(j + i) % a.length];
+}
+T set(int i, T x) {
+    T y = a[(j + i) % a.length];
+    a[(j + i) % a.length] = x;
+    return y;
+}
+\end{lstlisting}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.75\textwidth]{figs/fig2_3.png}
+    \caption{Una secuencia de operaciones \texttt{add(i,x)} y \texttt{remove(i)} en un \texttt{ArrayDeque}. Las flechas denotan elementos que están siendo copiados.}
+    \label{fig:2-3}
+\end{figure}
+
+La implementación de \texttt{add(i, x)} es un poco más interesante. Como de costumbre, primero verificamos si \texttt{a} está lleno y, si es necesario, llamamos a \texttt{resize()} para redimensionar \texttt{a}. Recordemos que queremos que esta operación sea rápida cuando \texttt{i} es pequeño (cerca de 0) o cuando \texttt{i} es grande (cerca de \texttt{n}). Por lo tanto, verificamos si \texttt{i < n/2}. Si es así, desplazamos los elementos \texttt{a[0],...,a[i-1]} una posición a la izquierda. De lo contrario (\texttt{i >= n/2}), desplazamos los elementos \texttt{a[i],...,a[n-1]} una posición a la derecha. Véase la Figura~\ref{fig:2-3} para una ilustración de las operaciones \texttt{add(i,x)} y \texttt{remove(x)} en un \texttt{ArrayDeque}.
+
+\claseheader{ArrayDeque}
+\begin{lstlisting}
+void add(int i, T x) {
+    if (n + 1 > a.length) resize();
+    if (i < n/2) { // desplazar a[0],..,a[i-1] una posicion a la izquierda
+        j = (j == 0) ? a.length - 1 : j - 1;
+        for (int k = 0; k <= i-1; k++)
+            a[(j+k)%a.length] = a[(j+k+1)%a.length];
+    } else { // desplazar a[i],..,a[n-1] una posicion a la derecha
+        for (int k = n; k > i; k--)
+            a[(j+k)%a.length] = a[(j+k-1)%a.length];
+    }
+    a[(j+i)%a.length] = x;
+    n++;
+}
+\end{lstlisting}
+
+Al realizar el desplazamiento de esta manera, garantizamos que \texttt{add(i,x)} nunca tenga que desplazar más de $\min\{i, n-i\}$ elementos. Por lo tanto, el tiempo de ejecución de la operación \texttt{add(i,x)} (ignorando el costo de una operación \texttt{resize()}) es $O(1 + \min\{i, n-i\})$.
+
+La implementación de la operación \texttt{remove(i)} es similar. Desplaza los elementos \texttt{a[0],...,a[i-1]} una posición a la derecha o desplaza los elementos \texttt{a[i+1],...,a[n-1]} una posición a la izquierda dependiendo de si $i < n/2$. De nuevo, esto significa que \texttt{remove(i)} nunca emplea más de $O(1 + \min\{i, n-i\})$ tiempo en desplazar elementos.
+
+\claseheader{ArrayDeque}
+\begin{lstlisting}
+T remove(int i) {
+    T x = a[(j+i)%a.length];
+    if (i < n/2) { // desplazar a[0],..,[i-1] una posicion a la derecha
+        for (int k = i; k > 0; k--)
+            a[(j+k)%a.length] = a[(j+k-1)%a.length];
+        j = (j + 1) % a.length;
+    } else { // desplazar a[i+1],..,a[n-1] una posicion a la izquierda
+        for (int k = i; k < n-1; k++)
+            a[(j+k)%a.length] = a[(j+k+1)%a.length];
+    }
+    n--;
+    if (3*n < a.length) resize();
+    return x;
+}
+\end{lstlisting}
+
+\subsection{Resumen}
+
+El siguiente teorema resume el rendimiento de la estructura de datos \texttt{ArrayDeque}:
+
+\begin{teorema}
+Un \texttt{ArrayDeque} implementa la interfaz \texttt{List}. Ignorando el costo de las llamadas a \texttt{resize()}, un \texttt{ArrayDeque} soporta las operaciones
+
+\begin{itemize}
+    \item \texttt{get(i)} y \texttt{set(i, x)} en tiempo $O(1)$ por operación; y
+    \item \texttt{add(i, x)} y \texttt{remove(i)} en tiempo $O(1 + \min\{i, n - i\})$ por operación.
+\end{itemize}
+
+Además, comenzando con un \texttt{ArrayDeque} vacío, realizar cualquier secuencia de $m$ operaciones \texttt{add(i, x)} y \texttt{remove(i)} resulta en un total de $O(m)$ tiempo empleado durante todas las llamadas a \texttt{resize()}.
+\end{teorema}
+
+\section{DualArrayDeque: Construyendo un Deque a partir de Dos Pilas}
+
+A continuación, presentamos una estructura de datos, el \texttt{DualArrayDeque}, que logra los mismos límites de rendimiento que un \texttt{ArrayDeque} utilizando dos \texttt{ArrayStack}. Aunque el rendimiento asintótico del \texttt{DualArrayDeque} no es mejor que el del \texttt{ArrayDeque}, todavía vale la pena estudiarlo, ya que ofrece un buen ejemplo de cómo construir una estructura de datos sofisticada combinando dos estructuras de datos más simples.
+
+Un \texttt{DualArrayDeque} representa una lista utilizando dos \texttt{ArrayStack}. Recordemos que un \texttt{ArrayStack} es rápido cuando las operaciones sobre él modifican elementos cerca del final. Un \texttt{DualArrayDeque} coloca dos \texttt{ArrayStack}, llamados \texttt{front} y \texttt{back}, uno tras otro (espalda con espalda) para que las operaciones sean rápidas en cualquiera de los dos extremos.
+
+\claseheader{DualArrayDeque}
+\begin{lstlisting}
+ArrayStack<T> front;
+ArrayStack<T> back;
+\end{lstlisting}
+
+Un \texttt{DualArrayDeque} no almacena explícitamente el número, \texttt{n}, de elementos que contiene. No necesita hacerlo, ya que contiene \texttt{n = front.size() + back.size()} elementos. Sin embargo, al analizar el \texttt{DualArrayDeque} seguiremos utilizando \texttt{n} para denotar el número de elementos que contiene.
+
+\claseheader{DualArrayDeque}
+\begin{lstlisting}
+int size() {
+    return front.size() + back.size();
+}
+\end{lstlisting}
+
+El \texttt{ArrayStack} \texttt{front} almacena los elementos de la lista cuyos índices son \texttt{0,...,front.size()-1}, pero los almacena en orden inverso. El \texttt{ArrayStack} \texttt{back} contiene elementos de la lista con índices en \texttt{front.size(),...,size()-1} en el orden normal. De esta manera, \texttt{get(i)} y \texttt{set(i,x)} se traducen en llamadas apropiadas a \texttt{get(i)} o \texttt{set(i,x)} ya sea en \texttt{front} o en \texttt{back}, las cuales toman un tiempo $O(1)$ por operación.
+
+\claseheader{DualArrayDeque}
+\begin{lstlisting}
+T get(int i) {
+    if (i < front.size()) {
+        return front.get(front.size() - i - 1);
+    } else {
+        return back.get(i - front.size());
+    }
+}
+T set(int i, T x) {
+    if (i < front.size()) {
+        return front.set(front.size() - i - 1, x);
+    } else {
+        return back.set(i - front.size(), x);
+    }
+}
+\end{lstlisting}
+
+Observe que si un índice \texttt{i < front.size()}, entonces corresponde al elemento de \texttt{front} en la posición \texttt{front.size() - i - 1}, ya que los elementos de \texttt{front} se almacenan en orden inverso.
+
+Agregar y eliminar elementos de un \texttt{DualArrayDeque} se ilustra en la Figura~\ref{fig:2-4}. La operación \texttt{add(i,x)} manipula ya sea \texttt{front} o \texttt{back}, según corresponda:
+
+\claseheader{DualArrayDeque}
+\begin{lstlisting}
+void add(int i, T x) {
+    if (i < front.size()) {
+        front.add(front.size() - i, x);
+    } else {
+        back.add(i - front.size(), x);
+    }
+    balance();
+}
+\end{lstlisting}
+
+El método \texttt{add(i,x)} realiza un reequilibrio de los dos \texttt{ArrayStacks} \texttt{front} y \texttt{back}, llamando al método \texttt{balance()}. La implementación de \texttt{balance()} se describe a continuación, pero por ahora es suficiente saber que \texttt{balance()} asegura que, a menos que \texttt{size() < 2}, \texttt{front.size()} y \texttt{back.size()} no difieran en más de un factor de 3. En particular, $3 \cdot \text{front.size()} \ge \text{back.size()}$ y $3 \cdot \text{back.size()} \ge \text{front.size()}$.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.75\textwidth]{figs/fig2_4.png}
+    \caption{Una secuencia de operaciones \texttt{add(i,x)} y \texttt{remove(i)} en un \texttt{DualArrayDeque}. Las flechas denotan elementos que están siendo copiados. Las operaciones que resultan en un reequilibrio mediante \texttt{balance()} están marcadas con un asterisco.}
+    \label{fig:2-4}
+\end{figure}
+
+A continuación analizamos el costo de \texttt{add(i, x)}, ignorando el costo de las llamadas a \texttt{balance()}. Si $i < \text{front.size()}$, entonces \texttt{add(i, x)} se implementa mediante la llamada a \texttt{front.add(front.size() - i - 1, x)}. Dado que \texttt{front} es un \texttt{ArrayStack}, el costo de esto es
+
+\begin{equation}
+O(\text{front.size()} - (\text{front.size()} - i - 1) + 1) = O(i + 1) .
+\label{eq:2-1}
+\end{equation}
+
+Por otro lado, si $i \ge \text{front.size()}$, entonces \texttt{add(i, x)} se implementa como \texttt{back.add(i - front.size(), x)}. El costo de esto es
+
+\begin{equation}
+O(\text{back.size()} - (i - \text{front.size()}) + 1) = O(n - i + 1) .
+\label{eq:2-2}
+\end{equation}
+
+Observe que el primer caso (\ref{eq:2-1}) ocurre cuando $i < n/4$. El segundo caso (\ref{eq:2-2}) ocurre cuando $i \ge 3n/4$. Cuando $n/4 \le i < 3n/4$, no podemos estar seguros de si la operación afecta a \texttt{front} o a \texttt{back}, pero en cualquier caso, la operación toma $O(n) = O(i) = O(n - i)$ tiempo, ya que $i \ge n/4$ y $n - i > n/4$. Resumiendo la situación, tenemos
+
+$$
+\text{Tiempo de ejecución de } \texttt{add(i, x)} \le
+\begin{cases}
+O(1 + i) & \text{si } i < n/4 \\
+O(n) & \text{si } n/4 \le i < 3n/4 \\
+O(1 + n - i) & \text{si } i \ge 3n/4
+\end{cases}
+$$
+
+Por lo tanto, el tiempo de ejecución de \texttt{add(i,x)}, si ignoramos el costo de la llamada a \texttt{balance()}, es $O(1 + \min\{i, n-i\})$.
+
+La operación \texttt{remove(i)} y su análisis se asemejan a la operación \texttt{add(i,x)} y su análisis.
+
+\claseheader{DualArrayDeque}
+\begin{lstlisting}
+T remove(int i) {
+    T x;
+    if (i < front.size()) {
+        x = front.remove(front.size() - i - 1);
+    } else {
+        x = back.remove(i - front.size());
+    }
+    balance();
+    return x;
+}
+\end{lstlisting}
+
+\subsection{Equilibrio}
+
+Finalmente, nos centramos en la operación \texttt{balance()} realizada por \texttt{add(i,x)} y \texttt{remove(i)}. Esta operación asegura que ni \texttt{front} ni \texttt{back} se vuelvan demasiado grandes (o demasiado pequeños). Asegura que, a menos que haya menos de dos elementos, tanto \texttt{front} como \texttt{back} contengan al menos $n/4$ elementos. Si este no es el caso, entonces mueve elementos entre ellos para que \texttt{front} y \texttt{back} contengan exactamente $\lfloor n/2 \rfloor$ elementos y $\lceil n/2 \rceil$ elementos, respectivamente.
+
+\claseheader{DualArrayDeque}
+\begin{lstlisting}
+void balance() {
+    if (3*front.size() < back.size()
+        || 3*back.size() < front.size()) {
+        int n = front.size() + back.size();
+        int nf = n/2;
+        array<T> af(max(2*nf, 1));
+        for (int i = 0; i < nf; i++)
+            af[nf-i-1] = get(i);
+        int nb = n - nf;
+        array<T> ab(max(2*nb, 1));
+        for (int i = 0; i < nb; i++)
+            ab[i] = get(nf+i);
+        front.a = af;
+        front.n = nf;
+        back.a = ab;
+        back.n = nb;
+    }
+}
+\end{lstlisting}
+
+Aquí hay poco que analizar. Si la operación \texttt{balance()} realiza un reequilibrio, entonces mueve $O(n)$ elementos y esto toma $O(n)$ tiempo. Esto es malo, ya que \texttt{balance()} se llama con cada llamada a \texttt{add(i,x)} y \texttt{remove(i)}. Sin embargo, el siguiente lema muestra que, en promedio, \texttt{balance()} solo emplea una cantidad constante de tiempo por operación.
+
+\begin{lema}
+Si se crea un \texttt{DualArrayDeque} vacío y se realiza cualquier secuencia de $m \ge 1$ llamadas a \texttt{add(i,x)} y \texttt{remove(i)}, entonces el tiempo total empleado durante todas las llamadas a \texttt{balance()} es $O(m)$.
+\end{lema}
+
+\begin{proof}
+Demostraremos que, si \texttt{balance()} se ve forzado a desplazar elementos, entonces el número de operaciones \texttt{add(i,x)} y \texttt{remove(i)} desde la última vez que \texttt{balance()} desplazó elementos es al menos $n/2 - 1$. Al igual que en la prueba del Lema~2.1, esto es suficiente para demostrar que el tiempo total empleado por \texttt{balance()} es $O(m)$.
+
+Realizaremos nuestro análisis utilizando una técnica conocida como el método del potencial. Definimos el potencial, $\Phi$, del \texttt{DualArrayDeque} como la diferencia de tamaño entre \texttt{front} y \texttt{back}:
+
+$$
+\Phi = |\text{front.size}() - \text{back.size}()| .
+$$
+
+Lo interesante de este potencial es que una llamada a \texttt{add(i,x)} o \texttt{remove(i)} que no realiza ningún equilibrio puede aumentar el potencial como máximo en 1.
+
+Observe que, inmediatamente después de una llamada a \texttt{balance()} que desplaza elementos, el potencial, $\Phi_0$, es como máximo 1, ya que
+
+$$
+\Phi_0 = |\lfloor n/2 \rfloor - \lceil n/2 \rceil| \le 1 .
+$$
+
+Considere la situación inmediatamente antes de una llamada a \texttt{balance()} que desplaza elementos y suponga, sin pérdida de generalidad, que \texttt{balance()} está desplazando elementos porque $3 \cdot \text{front.size}() < \text{back.size}()$. Observe que, en este caso,
+
+$$
+\begin{aligned}
+n &= \text{front.size}() + \text{back.size}() \\
+&< \text{back.size}()/3 + \text{back.size}() \\
+&= \frac{4}{3} \text{back.size}()
+\end{aligned}
+$$
+
+Además, el potencial en este punto en el tiempo es
+
+$$
+\begin{aligned}
+\Phi_1 &= \text{back.size}() - \text{front.size}() \\
+&> \text{back.size}() - \text{back.size}()/3 \\
+&= \frac{2}{3} \text{back.size}() \\
+&> \frac{2}{3} \times \frac{3}{4} n \\
+&= n/2
+\end{aligned}
+$$
+
+Por lo tanto, el número de llamadas a \texttt{add(i,x)} o \texttt{remove(i)} desde la última vez que \texttt{balance()} desplazó elementos es al menos $\Phi_1 - \Phi_0 > n/2 - 1$. Esto completa la prueba.
+\end{proof}
+
+\subsection{Resumen}
+
+El siguiente teorema resume las propiedades de un \texttt{DualArrayDeque}:
+
+\begin{teorema}
+Un \texttt{DualArrayDeque} implementa la interfaz \texttt{List}. Ignorando el costo de las llamadas a \texttt{resize()} y \texttt{balance()}, un \texttt{DualArrayDeque} soporta las operaciones
+
+\begin{itemize}
+    \item \texttt{get(i)} y \texttt{set(i,x)} en tiempo $O(1)$ por operación; y
+    \item \texttt{add(i,x)} y \texttt{remove(i)} en tiempo $O(1 + \min\{i, n-i\})$ por operación.
+\end{itemize}
+
+Además, comenzando con un \texttt{DualArrayDeque} vacío, cualquier secuencia de $m$ operaciones \texttt{add(i,x)} y \texttt{remove(i)} resulta en un total de $O(m)$ tiempo empleado durante todas las llamadas a \texttt{resize()} y \texttt{balance()}.
+\end{teorema}
+
+\section{RootishArrayStack: Una Pila Basada en Arreglos Eficiente en Espacio}
+
+Uno de los inconvenientes de todas las estructuras de datos anteriores en este capítulo es que, debido a que almacenan sus datos en uno o dos arreglos y evitan redimensionar estos arreglos con demasiada frecuencia, los arreglos con frecuencia no están muy llenos. Por ejemplo, inmediatamente después de una operación \texttt{resize()} en un \texttt{ArrayStack}, el arreglo de respaldo \texttt{a} solo está medio lleno. Peor aún, hay momentos en que solo un tercio de \texttt{a} contiene datos.
+
+En esta sección, discutimos la estructura de datos \texttt{RootishArrayStack}, que aborda el problema del espacio desperdiciado. El \texttt{RootishArrayStack} almacena \texttt{n} elementos utilizando $O(\sqrt{n})$ arreglos. En estos arreglos, como máximo $O(\sqrt{n})$ ubicaciones de arreglo no se utilizan en ningún momento. Todas las ubicaciones de arreglo restantes se utilizan para almacenar datos. Por lo tanto, estas estructuras de datos desperdician como máximo $O(\sqrt{n})$ espacio al almacenar \texttt{n} elementos.
+
+Un \texttt{RootishArrayStack} almacena sus elementos en una lista de \texttt{r} arreglos llamados \emph{bloques} que están numerados $0, 1, ..., r-1$. Véase la Figura~\ref{fig:2-5}. El bloque \texttt{b} contiene \texttt{b+1} elementos. Por lo tanto, todos los \texttt{r} bloques contienen un total de
+
+$$
+1 + 2 + 3 + \cdots + r = r(r+1)/2
+$$
+
+elementos. La fórmula anterior se puede obtener como se muestra en la Figura~\ref{fig:2-6}.
+
+\claseheader{RootishArrayStack}
+\begin{lstlisting}
+ArrayStack<T*> blocks;
+int n;
+\end{lstlisting}
+
+Como era de esperar, los elementos de la lista se distribuyen en orden dentro de los bloques. El elemento de la lista con índice 0 se almacena en el bloque 0, los elementos con índices de lista 1 y 2 se almacenan en el bloque 1, los elementos con índices de lista 3, 4 y 5 se almacenan en el bloque 2, y así sucesivamente. El principal problema que tenemos que abordar es el de determinar, dado un índice \texttt{i}, qué bloque contiene \texttt{i}, así como el índice correspondiente a \texttt{i} dentro de ese bloque.
+
+Determinar el índice de \texttt{i} dentro de su bloque resulta ser fácil. Si el índice \texttt{i} está en el bloque \texttt{b}, entonces el número de elementos en los bloques $0, ..., b-1$ es $b(b+1)/2$. Por lo tanto, \texttt{i} se almacena en la ubicación
+
+$$
+j = i - b(b+1)/2
+$$
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.75\textwidth]{figs/fig2_5.png}
+    \caption{Una secuencia de operaciones \texttt{add(i,x)} y \texttt{remove(i)} en un \texttt{RootishArrayStack}. Las flechas denotan elementos que están siendo copiados.}
+    \label{fig:2-5}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.65\textwidth]{figs/fig2_6.png}
+    \caption{El número de cuadrados blancos es $1 + 2 + 3 + \cdots + r$. El número de cuadrados sombreados es el mismo. Juntos, los cuadrados blancos y sombreados forman un rectángulo que consta de $r(r + 1)$ cuadrados.}
+    \label{fig:2-6}
+\end{figure}
+
+dentro del bloque \texttt{b}. Un poco más desafiante es el problema de determinar el valor de \texttt{b}. El número de elementos que tienen índices menores o iguales a \texttt{i} es $i + 1$. Por otro lado, el número de elementos en los bloques $0,...,b$ es $(b + 1)(b + 2)/2$. Por lo tanto, \texttt{b} es el entero más pequeño tal que
+
+$$
+\frac{(b + 1)(b + 2)}{2} \ge i + 1 .
+$$
+
+Podemos reescribir esta ecuación como
+
+$$
+b^2 + 3b - 2i \ge 0 .
+$$
+
+La ecuación cuadrática correspondiente $b^2 + 3b - 2i = 0$ tiene dos soluciones: $b = (-3 + \sqrt{9 + 8i})/2$ y $b = (-3 - \sqrt{9 + 8i})/2$. La segunda solución no tiene sentido en nuestra aplicación, ya que siempre da un valor negativo. Por lo tanto, obtenemos la solución $b = (-3 + \sqrt{9 + 8i})/2$. En general, esta solución no es un entero, pero volviendo a nuestra desigualdad, queremos el entero más pequeño \texttt{b} tal que $b \ge (-3 + \sqrt{9 + 8i})/2$. Esto es simplemente
+
+$$
+b = \left\lceil \frac{-3 + \sqrt{9 + 8i}}{2} \right\rceil .
+$$
+
+\claseheader{RootishArrayStack}
+\begin{lstlisting}
+int i2b(int i) {
+    double db = (-3.0 + sqrt(9 + 8*i)) / 2.0;
+    int b = (int)ceil(db);
+    return b;
+}
+\end{lstlisting}
+
+Una vez resuelto esto, los métodos \texttt{get(i)} y \texttt{set(i,x)} son sencillos. Primero calculamos el bloque \texttt{b} apropiado y el índice \texttt{j} apropiado dentro del bloque y luego realizamos la operación apropiada:
+
+\claseheader{RootishArrayStack}
+\begin{lstlisting}
+T get(int i) {
+    int b = i2b(i);
+    int j = i - b*(b+1)/2;
+    return blocks.get(b)[j];
+}
+T set(int i, T x) {
+    int b = i2b(i);
+    int j = i - b*(b+1)/2;
+    T y = blocks.get(b)[j];
+    blocks.get(b)[j] = x;
+    return y;
+}
+\end{lstlisting}
+
+Si utilizamos cualquiera de las estructuras de datos de este capítulo para representar la lista \texttt{blocks}, entonces \texttt{get(i)} y \texttt{set(i,x)} se ejecutarán en tiempo constante.
+
+El método \texttt{add(i,x)}, a estas alturas, nos resultará familiar. Primero verificamos si nuestra estructura de datos está llena, comprobando si el número de bloques, \texttt{r}, es tal que \texttt{r(r + 1)/2 = n}. Si es así, llamamos a \texttt{grow()} para agregar otro bloque. Hecho esto, desplazamos los elementos con índices \texttt{i,...,n-1} una posición a la derecha para hacer espacio para el nuevo elemento con índice \texttt{i}:
+
+\claseheader{RootishArrayStack}
+\begin{lstlisting}
+void add(int i, T x) {
+    int r = blocks.size();
+    if (r*(r+1)/2 < n + 1) grow();
+    n++;
+    for (int j = n-1; j > i; j--)
+        set(j, get(j-1));
+    set(i, x);
+}
+\end{lstlisting}
+
+El método \texttt{grow()} hace lo que esperamos. Agrega un nuevo bloque:
+
+\claseheader{RootishArrayStack}
+\begin{lstlisting}
+void grow() {
+    blocks.add(blocks.size(), new T[blocks.size()+1]);
+}
+\end{lstlisting}
+
+Ignorando el costo de la operación \texttt{grow()}, el costo de una operación \texttt{add(i,x)} está dominado por el costo del desplazamiento y, por lo tanto, es $O(1+n-i)$, al igual que en un \texttt{ArrayStack}.
+
+La operación \texttt{remove(i)} es similar a \texttt{add(i,x)}. Desplaza los elementos con índices \texttt{i+1,...,n} una posición a la izquierda y luego, si hay más de un bloque vacío, llama al método \texttt{shrink()} para eliminar todos menos uno de los bloques no utilizados:
+
+\claseheader{RootishArrayStack}
+\begin{lstlisting}
+T remove(int i) {
+    T x = get(i);
+    for (int j = i; j < n-1; j++)
+        set(j, get(j+1));
+    n--;
+    int r = blocks.size();
+    if ((r-2)*(r-1)/2 >= n) shrink();
+    return x;
+}
+\end{lstlisting}
+
+\claseheader{RootishArrayStack}
+\begin{lstlisting}
+void shrink() {
+    int r = blocks.size();
+    while (r > 0 && (r-2)*(r-1)/2 >= n) {
+        delete [] blocks.remove(blocks.size()-1);
+        r--;
+    }
+}
+\end{lstlisting}
+
+Una vez más, ignorando el costo de la operación \texttt{shrink()}, el costo de una operación \texttt{remove(i)} está dominado por el costo del desplazamiento y, por lo tanto, es $O(n - i)$.
+
+\subsection{Análisis del Crecimiento y la Contracción}
+
+El análisis anterior de \texttt{add(i,x)} y \texttt{remove(i)} no tiene en cuenta el costo de \texttt{grow()} y \texttt{shrink()}. Observe que, a diferencia de la operación \texttt{ArrayStack.resize()}, \texttt{grow()} y \texttt{shrink()} no copian ningún dato. Solo asignan o liberan un arreglo de tamaño \texttt{r}. En algunos entornos, esto toma solo tiempo constante, mientras que en otros, puede requerir tiempo proporcional a \texttt{r}.
+
+Observamos que, inmediatamente después de una llamada a \texttt{grow()} o \texttt{shrink()}, la situación es clara. El bloque final está completamente vacío y todos los demás bloques están completamente llenos. Otra llamada a \texttt{grow()} o \texttt{shrink()} no ocurrirá hasta que se hayan agregado o eliminado al menos \texttt{r - 1} elementos. Por lo tanto, incluso si \texttt{grow()} y \texttt{shrink()} toman tiempo $O(r)$, este costo se puede amortizar sobre al menos \texttt{r - 1} operaciones \texttt{add(i,x)} o \texttt{remove(i)}, de modo que el costo amortizado de \texttt{grow()} y \texttt{shrink()} es $O(1)$ por operación.
+
+\subsection{Uso del Espacio}
+
+A continuación, analizamos la cantidad de espacio extra utilizado por un \texttt{RootishArrayStack}. En particular, queremos contar cualquier espacio utilizado por un \texttt{RootishArrayStack} que no sea un elemento de arreglo utilizado actualmente para contener un elemento de la lista. A todo ese espacio lo llamamos espacio desperdiciado.
+
+La operación \texttt{remove(i)} asegura que un \texttt{RootishArrayStack} nunca tenga más de dos bloques que no estén completamente llenos. El número de bloques, \texttt{r}, utilizado por un \texttt{RootishArrayStack} que almacena \texttt{n} elementos, por lo tanto, satisface
+
+$$
+(r - 2)(r - 1) \le n .
+$$
+
+Nuevamente, usando la ecuación cuadrática en esto se obtiene
+
+$$
+r \le \frac{3 + \sqrt{1 + 4n}}{2} = O(\sqrt{n}) .
+$$
+
+Los dos últimos bloques tienen tamaños \texttt{r} y \texttt{r - 1}, por lo que el espacio desperdiciado por estos dos bloques es como máximo $2r - 1 = O(\sqrt{n})$. Si almacenamos los bloques en (por ejemplo) un \texttt{ArrayStack}, entonces la cantidad de espacio desperdiciado por la \texttt{List} que almacena esos \texttt{r} bloques también es $O(r) = O(\sqrt{n})$. El otro espacio necesario para almacenar \texttt{n} y otra información contable es $O(1)$. Por lo tanto, la cantidad total de espacio desperdiciado en un \texttt{RootishArrayStack} es $O(\sqrt{n})$.
+
+A continuación, argumentamos que este uso del espacio es óptimo para cualquier estructura de datos que comience vacía y pueda soportar la adición de un elemento a la vez. Más precisamente, mostraremos que, en algún momento durante la adición de \texttt{n} elementos, la estructura de datos está desperdiciando una cantidad de espacio de al menos $\sqrt{n}$ (aunque puede ser desperdiciado solo por un momento).
+
+Supongamos que comenzamos con una estructura de datos vacía y agregamos \texttt{n} elementos uno a la vez. Al final de este proceso, los \texttt{n} elementos se almacenan en la estructura y se distribuyen entre una colección de \texttt{r} bloques de memoria. Si $r \ge \sqrt{n}$, entonces la estructura de datos debe estar usando \texttt{r} punteros (o referencias) para realizar un seguimiento de estos \texttt{r} bloques, y estos punteros son espacio desperdiciado. Por otro lado, si $r < \sqrt{n}$, entonces por el principio del palomar, algún bloque debe tener un tamaño de al menos $n/r > \sqrt{n}$. Consideremos el momento en que este bloque fue asignado por primera vez. Inmediatamente después de ser asignado, este bloque estaba vacío y, por lo tanto, desperdiciaba $\sqrt{n}$ espacio. Por lo tanto, en algún momento durante la inserción de \texttt{n} elementos, la estructura de datos estaba desperdiciando $\sqrt{n}$ espacio.
+
+\subsection{Resumen}
+
+El siguiente teorema resume nuestra discusión sobre la estructura de datos \texttt{RootishArrayStack}:
+
+\begin{teorema}
+Un \texttt{RootishArrayStack} implementa la interfaz \texttt{List}. Ignorando el costo de las llamadas a \texttt{grow()} y \texttt{shrink()}, un \texttt{RootishArrayStack} soporta las operaciones
+
+\begin{itemize}
+    \item \texttt{get(i)} y \texttt{set(i,x)} en tiempo $O(1)$ por operación; y
+    \item \texttt{add(i,x)} y \texttt{remove(i)} en tiempo $O(1 + n - i)$ por operación.
+\end{itemize}
+
+Además, comenzando con un \texttt{RootishArrayStack} vacío, cualquier secuencia de $m$ operaciones \texttt{add(i,x)} y \texttt{remove(i)} resulta en un total de $O(m)$ tiempo empleado durante todas las llamadas a \texttt{grow()} y \texttt{shrink()}.
+
+El espacio (medido en palabras)\footnote{Recuerde la Sección 1.4 para una discusión sobre cómo se mide la memoria.} utilizado por un \texttt{RootishArrayStack} que almacena $n$ elementos es $n + O(\sqrt{n})$.
+\end{teorema}
+
+\subsection{Cálculo de Raíces Cuadradas}
+
+Un lector que haya tenido cierta exposición a los modelos de computación puede notar que el \texttt{RootishArrayStack}, como se describió anteriormente, no encaja en el modelo habitual de \emph{word-RAM} (Sección 1.4) porque requiere calcular raíces cuadradas. La operación de raíz cuadrada generalmente no se considera una operación básica y, por lo tanto, no suele ser parte del modelo \emph{word-RAM}.
+
+En esta sección, mostramos que la operación de raíz cuadrada se puede implementar de manera eficiente. En particular, mostramos que para cualquier entero $x \in \{0,...,n\}$, $\lfloor\sqrt{x}\rfloor$ se puede calcular en tiempo constante, después de un preprocesamiento $O(\sqrt{n})$ que crea dos arreglos de longitud $O(\sqrt{n})$. El siguiente lema muestra que podemos reducir el problema de calcular la raíz cuadrada de $x$ a la raíz cuadrada de un valor relacionado $x'$.
+
+\begin{lema}
+Sea $x \ge 1$ y sea $x' = x - a$, donde $0 \le a \le \sqrt{x}$. Entonces $\sqrt{x'} \ge \sqrt{x} - 1$.
+\end{lema}
+
+\begin{proof}
+Es suficiente demostrar que
+
+$$
+\sqrt{x} - \sqrt{x'} \le 1 .
+$$
+
+Eleva al cuadrado ambos lados de esta desigualdad para obtener
+
+$$
+x - \sqrt{x} \ge x - 2\sqrt{x} + 1
+$$
+
+y agrupa los términos para obtener
+
+$$
+\sqrt{x} \ge 1
+$$
+
+lo cual es claramente cierto para cualquier $x \ge 1$.
+\end{proof}
+
+Comienza restringiendo un poco el problema, y suponga que $2^r \le x < 2^{r+1}$, de modo que $\lfloor\log x\rfloor = r$, es decir, $x$ es un entero que tiene $r + 1$ bits en su representación binaria. Podemos tomar $x' = x - (x \bmod 2^{\lfloor r/2\rfloor})$. Ahora, $x'$ satisface las condiciones del Lema~2.3, por lo que $\sqrt{x} - \sqrt{x'} \le 1$. Además, $x'$ tiene todos sus bits de orden inferior $\lfloor r/2\rfloor$ iguales a 0, por lo que solo hay
+
+$$
+2^{r+1-\lfloor r/2\rfloor} \le 4 \cdot 2^{r/2} \le 4\sqrt{x}
+$$
+
+valores posibles de $x'$. Esto significa que podemos usar un arreglo, \texttt{sqrttab}, que almacene el valor de $\lfloor\sqrt{x'}\rfloor$ para cada valor posible de $x'$. Un poco más precisamente, tenemos
+
+$$
+\text{sqrttab}[i] = \left\lfloor\sqrt{i \cdot 2^{\lfloor r/2\rfloor}}\right\rfloor .
+$$
+
+De esta manera, \texttt{sqrttab[i]} está dentro de 2 de $\sqrt{x'}$ para todo $x' \in \{i2^{\lfloor r/2\rfloor}, ..., (i+1)2^{\lfloor r/2\rfloor}-1\}$. Dicho de otra manera, la entrada del arreglo $s = \text{sqrttab}[x \gg \lfloor r/2\rfloor]$ es igual a $\lfloor\sqrt{x'}\rfloor$, $\lfloor\sqrt{x'}\rfloor - 1$, o $\lfloor\sqrt{x'}\rfloor - 2$. A partir de $s$ podemos determinar el valor de $\lfloor\sqrt{x}\rfloor$ incrementando $s$ hasta que $(s+1)^2 > x$.
+
+\claseheader{FastSqrt}
+\begin{lstlisting}
+int sqrt(int x, int r) {
+    int s = sqrttab[x>>r/2];
+    while ((s+1)*(s+1) <= x) s++; // se ejecuta como maximo dos veces
+    return s;
+}
+\end{lstlisting}
+
+Ahora, esto solo funciona para $x \in [2^r,..., 2^{r+1}-1]$ y \texttt{sqrttab} es una tabla especial que solo funciona para un valor particular de $r = \lfloor\log x\rfloor$. Para superar esto, podríamos calcular $\lfloor\log n\rfloor$ diferentes arreglos \texttt{sqrttab}, uno para cada posible valor de $\lfloor\log x\rfloor$. Los tamaños de estas tablas forman una secuencia exponencial cuyo valor más grande es como máximo $4\sqrt{n}$, por lo que el tamaño total de todas las tablas es $O(\sqrt{n})$.
+
+Sin embargo, resulta que más de un arreglo \texttt{sqrttab} es innecesario; solo necesitamos un arreglo \texttt{sqrttab} para el valor $r = \lfloor\log n\rfloor$. Cualquier valor $x$ con $\log x = r' < r$ puede ser actualizado multiplicando $x$ por $2^{r-r'}$ y usando la ecuación
+
+$$
+\sqrt{2^{r-r'}x} = 2^{(r-r')/2}\sqrt{x} .
+$$
+
+La cantidad $2^{r-r'}x$ está en el rango $[2^r,..., 2^{r+1}-1]$ por lo que podemos buscar su raíz cuadrada en \texttt{sqrttab}. El siguiente código implementa esta idea para calcular $\lfloor\sqrt{x}\rfloor$ para todos los enteros no negativos $x$ en el rango $[0,...,2^{30}-1]$ utilizando un arreglo, \texttt{sqrttab}, de tamaño $2^{16}$.
+
+\claseheader{FastSqrt}
+\begin{lstlisting}
+int sqrt(int x) {
+    int rp = log(x);
+    int upgrade = ((r-rp)/2) * 2;
+    int xp = x << upgrade;  // xp tiene r o r-1 bits
+    int s = sqrttab[xp>>(r/2)] >> (upgrade/2);
+    while ((s+1)*(s+1) <= x) s++;  // se ejecuta como maximo dos veces
+    return s;
+}
+\end{lstlisting}
+
+Algo que hemos dado por sentado hasta ahora es la cuestión de cómo calcular $r' = \lfloor\log x\rfloor$. De nuevo, este es un problema que se puede resolver con un arreglo, \texttt{logtab}, de tamaño $2^{r/2}$. En este caso, el código es particularmente simple, ya que $\lfloor\log x\rfloor$ es solo el índice del bit 1 más significativo en la representación binaria de $x$. Esto significa que, para $x > 2^{r/2}$, podemos desplazar a la derecha los bits de $x$ en $r/2$ posiciones antes de usarlo como un índice en \texttt{logtab}. El siguiente código hace esto utilizando un arreglo \texttt{logtab} de tamaño $2^{16}$ para calcular $\lfloor\log x\rfloor$ para todos los $x$ en el rango $[1,...,2^{32}-1]$.
+
+\claseheader{FastSqrt}
+\begin{lstlisting}
+int log(int x) {
+    if (x >= halfint)
+        return 16 + logtab[x>>16];
+    return logtab[x];
+}
+\end{lstlisting}
+
+Finalmente, para completar, incluimos el siguiente código que inicializa \texttt{logtab} y \texttt{sqrttab}:
+
+\claseheader{FastSqrt}
+\begin{lstlisting}
+void inittabs() {
+    sqrttab = new int[1<<(r/2)];
+    logtab = new int[1<<(r/2)];
+    for (int d = 0; d < r/2; d++)
+        for (int k = 0; k < 1<<d; k++)
+            logtab[1<<d+k] = d;
+    int s = 1<<(r/4);                    // raiz cuadrada(2^(r/2))
+    for (int i = 0; i < 1<<(r/2); i++) {
+        if ((s+1)*(s+1) <= i << (r/2)) s++; // la raiz cuadrada aumenta
+        sqrttab[i] = s;
+    }
+}
+\end{lstlisting}
+
+En resumen, los cálculos realizados por el método \texttt{i2b(i)} se pueden implementar en tiempo constante en la \emph{word-RAM} utilizando $O(\sqrt{n})$ memoria adicional para almacenar los arreglos \texttt{sqrttab} y \texttt{logtab}. Estos arreglos se pueden reconstruir cuando $n$ aumenta o disminuye por un factor de dos, y el costo de esta reconstrucción se puede amortizar sobre el número de operaciones \texttt{add(i,x)} y \texttt{remove(i)} que causaron el cambio en $n$, de la misma manera que se analiza el costo de \texttt{resize()} en la implementación de \texttt{ArrayStack}.
+
+\section{Discusión y Ejercicios}
+
+La mayoría de las estructuras de datos descritas en este capítulo son folclore. Se pueden encontrar en implementaciones que datan de hace más de 30 años. Por ejemplo, las implementaciones de pilas, colas y deques, que se generalizan fácilmente a las estructuras \texttt{ArrayStack}, \texttt{ArrayQueue} y \texttt{ArrayDeque} descritas aquí, son discutidas por Knuth [46, Sección 2.2.2].
+
+Brodnik et al.\ [13] parecen haber sido los primeros en describir el \texttt{RootishArrayStack} y probar una cota inferior de $\sqrt{n}$ como la de la Sección 2.6.2. También presentan una estructura diferente que utiliza una elección más sofisticada de tamaños de bloque para evitar calcular raíces cuadradas en el método \texttt{i2b(i)}. Dentro de su esquema, el bloque que contiene \texttt{i} es el bloque $\lfloor\log(i + 1)\rfloor$, que es simplemente el índice del bit 1 principal en la representación binaria de \texttt{i + 1}. Algunas arquitecturas de computadoras proporcionan una instrucción para calcular el índice del bit 1 principal en un entero.
+
+Una estructura relacionada con el \texttt{RootishArrayStack} es el vector escalonado de dos niveles (\emph{two-level tiered-vector}) de Goodrich y Kloss [35]. Esta estructura soporta las operaciones \texttt{get(i, x)} y \texttt{set(i, x)} en tiempo constante y \texttt{add(i, x)} y \texttt{remove(i)} en tiempo $O(\sqrt{n})$. Estos tiempos de ejecución son similares a lo que se puede lograr con la implementación más cuidadosa de un \texttt{RootishArrayStack} discutida en el Ejercicio 2.10.
+
+\begin{enumerate}[label=\textbf{Ejercicio 2.\arabic*.}, leftmargin=*, itemsep=8pt]
+
+\item El método \texttt{List} \texttt{addAll(i, c)} inserta todos los elementos de la \texttt{Collection} \texttt{c} en la lista en la posición \texttt{i}. (El método \texttt{add(i, x)} es un caso especial donde \texttt{c = \{x\}}.) Explique por qué, para las estructuras de datos de este capítulo, no es eficiente implementar \texttt{addAll(i, c)} mediante llamadas repetidas a \texttt{add(i, x)}. Diseñe e implemente una implementación más eficiente.
+
+\item Diseñe e implemente una \texttt{RandomQueue}. Esta es una implementación de la interfaz \texttt{Queue} en la que la operación \texttt{remove()} elimina un elemento elegido uniformemente al azar entre todos los elementos actualmente en la cola. (Piense en una \texttt{RandomQueue} como una bolsa en la que podemos agregar elementos o alcanzar y eliminar ciegamente algún elemento aleatorio.) Las operaciones \texttt{add(x)} y \texttt{remove()} en una \texttt{RandomQueue} deben ejecutarse en tiempo constante por operación.
+
+\item Diseñe e implemente una \texttt{Treque} (cola de triple extremo). Esta es una implementación de \texttt{List} en la que \texttt{get(i)} y \texttt{set(i, x)} se ejecutan en tiempo constante y \texttt{add(i, x)} y \texttt{remove(i)} se ejecutan en tiempo
+$$
+O(1 + \min\{i, n - i, |n/2 - i|\}) .
+$$
+En otras palabras, las modificaciones son rápidas si están cerca de cualquiera de los extremos o cerca de la mitad de la lista.
+
+\item Implemente un método \texttt{rotate(a, r)} que ``rote'' el arreglo \texttt{a} de modo que \texttt{a[i]} se mueva a \texttt{a[(i + r) mod a.length]}, para todo $i \in \{0, ..., \text{a.length}\}$.
+
+\item Implemente un método \texttt{rotate(r)} que ``rote'' una \texttt{List} de modo que el elemento de la lista \texttt{i} se convierta en el elemento de la lista \texttt{(i + r) mod n}. Cuando se ejecuta en un \texttt{ArrayDeque}, o un \texttt{DualArrayDeque}, \texttt{rotate(r)} debe ejecutarse en tiempo $O(1 + \min\{r, n - r\})$.
+
+\item Modifique la implementación de \texttt{ArrayDeque} para que el desplazamiento realizado por \texttt{add(i,x)}, \texttt{remove(i)} y \texttt{resize()} se realice utilizando el método más rápido \texttt{System.arraycopy(s, i, d, j, n)}.
+
+\item Modifique la implementación de \texttt{ArrayDeque} para que no utilice el operador \texttt{\%} (que es costoso en algunos sistemas). En su lugar, debería hacer uso del hecho de que, si \texttt{a.length} es una potencia de 2, entonces
+$$
+k\%\text{a.length} = k\&(\text{a.length} - 1) .
+$$
+(Aquí, \texttt{\&} es el operador bit a bit AND.)
+
+\item Diseñe e implemente una variante de \texttt{ArrayDeque} que no realice ninguna aritmética modular. En su lugar, todos los datos se ubican en un bloque contiguo, en orden, dentro de un arreglo. Cuando los datos sobrepasan el principio o el final de este arreglo, se realiza una operación \texttt{rebuild()} modificada. El costo amortizado de todas las operaciones debería ser el mismo que en un \texttt{ArrayDeque}.
+
+\emph{Sugerencia:} Lograr que esto funcione se trata realmente de cómo se implementa la operación \texttt{rebuild()}. Uno querría que \texttt{rebuild()} colocara la estructura de datos en un estado en el que los datos no puedan salirse por ningún extremo hasta que se hayan realizado al menos $n/2$ operaciones.
+
+Pruebe el rendimiento de su implementación contra el \texttt{ArrayDeque}. Optimice su implementación (usando \texttt{System.arraycopy(a, i, b, i, n)}) y vea si puede superar la implementación de \texttt{ArrayDeque}.
+
+\item Diseñe e implemente una versión de un \texttt{RootishArrayStack} que solo tenga $O(\sqrt{n})$ espacio desperdiciado, pero que pueda realizar operaciones \texttt{add(i,x)} y \texttt{remove(i,x)} en tiempo $O(1 + \min\{i, n - i\})$.
+
+\item Diseñe e implemente una versión de un \texttt{RootishArrayStack} que solo tenga $O(\sqrt{n})$ espacio desperdiciado, pero que pueda realizar operaciones \texttt{add(i, x)} y \texttt{remove(i, x)} en tiempo $O(1 + \min\{\sqrt{n}, n - i\})$. (Para una idea de cómo hacer esto, véase la Sección 3.3.)
+
+\item Diseñe e implemente una versión de un \texttt{RootishArrayStack} que solo tenga $O(\sqrt{n})$ espacio desperdiciado, pero que pueda realizar operaciones \texttt{add(i, x)} y \texttt{remove(i, x)} en tiempo $O(1 + \min\{i, \sqrt{n}, n - i\})$. (Véase la Sección 3.3 para ideas sobre cómo lograr esto.)
+
+\item Diseñe e implemente un \texttt{CubishArrayStack}. Esta estructura de tres niveles implementa la interfaz \texttt{List} utilizando $O(n^{2/3})$ espacio desperdiciado. En esta estructura, \texttt{get(i)} y \texttt{set(i, x)} toman tiempo constante; mientras que \texttt{add(i, x)} y \texttt{remove(i)} toman tiempo amortizado $O(n^{1/3})$.
+
+\end{enumerate}
+
+\end{document}

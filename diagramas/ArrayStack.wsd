@@ -1,0 +1,133 @@
+@startuml ArrayStack
+skinparam Monochrome true
+skinparam BorderColor Black
+skinparam BackgroundColor White
+
+' ========================================================
+' CONSTRUCTOR: ArrayStack()
+' ========================================================
+partition "Constructor: ArrayStack()" {
+    start
+    :Inicializa arreglo interno **a** con tamaño 1 (**a(1)**);
+    :Asigna **n = 0**;
+    stop
+}
+
+' ========================================================
+' DESTRUCTOR: ~ArrayStack()
+' ========================================================
+partition "Destructor: ~ArrayStack()" {
+    start
+    :Destrucción implícita de objetos miembros (arreglo **a**);
+    stop
+}
+
+' ========================================================
+' MÉTODO: size()
+' ========================================================
+partition "Método: size()" {
+    start
+    :Retorna **n**;
+    stop
+}
+
+' ========================================================
+' MÉTODO: get(int i)
+' ========================================================
+partition "Método: get(i)" {
+    start
+    :Recibe índice **i**;
+    :Retorna **a[i]** (Invoca operator[] de array);
+    stop
+}
+
+' ========================================================
+' MÉTODO: set(int i, T x)
+' ========================================================
+partition "Método: set(i, x)" {
+    start
+    :Recibe índice **i**, valor **x**;
+    :Declara y asigna **T y = a[i]**;
+    :Asigna **a[i] = x**;
+    :Retorna viejo valor **y**;
+    stop
+}
+
+' ========================================================
+' MÉTODO: clear()
+' ========================================================
+partition "Método: clear()" {
+    start
+    :Asigna **n = 0**;
+    :Instancia arreglo temporal **array<T> b(1)**;
+    :Asigna **a = b** (Libera memoria anterior y reasigna);
+    stop
+}
+
+' ========================================================
+' MÉTODO VIRTUAL PROTEGIDO: resize()
+' ========================================================
+partition "Método Protegido: resize()" {
+    start
+    :Calcula tamaño óptimo llamando a **max(2 * n, 1)**;
+    :Instancia arreglo temporal **array<T> b(nuevo_tamano)**;
+    :Inicializa **i = 0**;
+    while (i < n) is (true)
+        :Asigna **b[i] = a[i]**;
+        :Incrementa **i++**;
+    endwhile (false)
+    :Asigna **a = b** (Actualiza puntero del arreglo y destruye viejo arreglo);
+    stop
+}
+
+' ========================================================
+' MÉTODO VIRTUAL: add(int i, T x)
+' ========================================================
+partition "Método: add(i, x)" {
+    start
+    :Recibe índice **i**, valor **x**;
+    if (n + 1 > a.length) then (true)
+        :Llama a **resize()**;
+    else (false)
+    endif
+    :Inicializa **j = n** (Desplazamiento a la derecha);
+    while (j > i) is (true)
+        :Asigna **a[j] = a[j - 1]**;
+        :Decrementa **j--**;
+    endwhile (false)
+    :Asigna **a[i] = x**;
+    :Incrementa el contador **n++**;
+    stop
+}
+
+' ========================================================
+' MÉTODO EN LINEA: add(T x)
+' ========================================================
+partition "Método: add(x)" {
+    start
+    :Recibe valor **x**;
+    :Llama a **add(size(), x)**;
+    stop
+}
+
+' ========================================================
+' MÉTODO VIRTUAL: remove(int i)
+' ========================================================
+partition "Método: remove(i)" {
+    start
+    :Recibe índice **i**;
+    :Declara y almacena **T x = a[i]**;
+    :Inicializa **j = i** (Desplazamiento a la izquierda);
+    while (j < n - 1) is (true)
+        :Asigna **a[j] = a[j + 1]**;
+        :Incrementa **j++**;
+    endwhile (false)
+    :Decrementa el contador **n--**;
+    if (a.length >= 3 * n) then (true)
+        :Llama a **resize()**;
+    else (false)
+    endif
+    :Retorna el elemento eliminado **x**;
+    stop
+}
+@enduml

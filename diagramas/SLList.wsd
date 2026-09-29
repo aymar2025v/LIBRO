@@ -1,0 +1,142 @@
+@startuml SLList
+skinparam Monochrome true
+skinparam BorderColor Black
+skinparam BackgroundColor White
+
+' ========================================================
+' CONSTRUCTOR DE NODO: Node(T x0)
+' ========================================================
+partition "Constructor Interno: Node(x0)" {
+    start
+    :Recibe valor **x0**;
+    note right: Nota: El código del libro inicializa x = 0 de forma literal
+    :Asigna **x = 0**;
+    :Asigna **next = NULL**;
+    stop
+}
+
+' ========================================================
+' CONSTRUCTOR DE LISTA: SLList()
+' ========================================================
+partition "Constructor: SLList()" {
+    start
+    :Asigna **null = (T)NULL**;
+    :Asigna **n = 0**;
+    :Asigna **head = NULL** y **tail = NULL**;
+    stop
+}
+
+' ========================================================
+' DESTRUCTOR DE LISTA: ~SLList()
+' ========================================================
+partition "Destructor: ~SLList()" {
+    start
+    :Inicializa puntero de rastreo **u = head**;
+    while (u != NULL) is (true)
+        :Resguarda nodo actual **Node *w = u**;
+        :Avanza al siguiente nodo **u = u->next**;
+        :Libera memoria del nodo guardado **delete w**;
+    endwhile (false)
+    stop
+}
+
+' ========================================================
+' MÉTODO: size()
+' ========================================================
+partition "Método: size()" {
+    start
+    :Retorna **n**;
+    stop
+}
+
+' ========================================================
+' MÉTODO: peek()
+' ========================================================
+partition "Método: peek()" {
+    start
+    :Retorna el valor del primer nodo: **head->x**;
+    stop
+}
+
+' ========================================================
+' MÉTODO: add(T x) [Encolar al final / Queue append]
+' ========================================================
+partition "Método: add(x)" {
+    start
+    :Recibe valor **x**;
+    :Instancia un nuevo nodo en memoria:\n**Node *u = new Node(x)**;
+    if (n == 0) then (true)
+        :El nuevo nodo es la cabeza:\n**head = u**;
+    else (false)
+        :Enlaza detrás del último nodo:\n**tail->next = u**;
+    endif
+    :Actualiza la cola de la lista:\n**tail = u**;
+    :Incrementa el contador **n++**;
+    :Retorna **true**;
+    stop
+}
+
+' ========================================================
+' MÉTODO: push(T x) [Insertar al inicio / Stack push]
+' ========================================================
+partition "Método: push(x)" {
+    start
+    :Recibe valor **x**;
+    :Instancia un nuevo nodo en memoria:\n**Node *u = new Node(x)**;
+    :Apunta el nuevo nodo a la vieja cabeza:\n**u->next = head**;
+    :Actualiza la cabeza de la lista:\n**head = u**;
+    if (n == 0) then (true)
+        :Si estaba vacía, también es la cola:\n**tail = u**;
+    else (false)
+    endif
+    :Incrementa el contador **n++**;
+    :Retorna el valor insertado **x**;
+    stop
+}
+
+' ========================================================
+' MÉTODO: remove() [Eliminar al inicio / Queue dequeue]
+' ========================================================
+partition "Método: remove()" {
+    start
+    if (n == 0) then (true)
+        :Retorna valor por defecto **null**;
+        stop
+    else (false)
+    endif
+    :Resguarda el valor de la cabeza **T x = head->x**;
+    :Resguarda el puntero de la cabeza **Node *u = head**;
+    :Avanza la cabeza al siguiente elemento:\n**head = head->next**;
+    :Libera la memoria del nodo removido:\n**delete u**;
+    :Decrementa **n** y evalúa (**--n == 0**);
+    if (--n == 0) then (true)
+        :Lista ahora vacía, limpia la cola:\n**tail = NULL**;
+    else (false)
+    endif
+    :Retorna el valor eliminado **x**;
+    stop
+}
+
+' ========================================================
+' MÉTODO: pop() [Eliminar al inicio / Stack pop]
+' ========================================================
+partition "Método: pop()" {
+    start
+    if (n == 0) then (true)
+        :Retorna valor por defecto **null**;
+        stop
+    else (false)
+    endif
+    :Resguarda el valor de la cabeza **T x = head->x**;
+    :Resguarda el puntero de la cabeza **Node *u = head**;
+    :Avanza la cabeza al siguiente elemento:\n**head = head->next**;
+    :Libera la memoria del nodo removido:\n**delete u**;
+    :Decrementa **n** y evalúa (**--n == 0**);
+    if (--n == 0) then (true)
+        :Lista ahora vacía, limpia la cola:\n**tail = NULL**;
+    else (false)
+    endif
+    :Retorna el valor eliminado **x**;
+    stop
+}
+@enduml

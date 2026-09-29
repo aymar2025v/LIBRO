@@ -1,0 +1,104 @@
+@startuml utils
+skinparam Monochrome true
+skinparam BorderColor Black
+skinparam BackgroundColor White
+
+' ========================================================
+' FUNCIÓN INLINE: min(T a, T b)
+' ========================================================
+partition "Función: min(a, b)" {
+    start
+    :Recibe valores **a**, **b**;
+    if (a < b) then (true)
+        :Retorna **a**;
+    else (false)
+        :Retorna **b**;
+    endif
+    stop
+}
+
+' ========================================================
+' FUNCIÓN INLINE: max(T a, T b)
+' ========================================================
+partition "Función: max(a, b)" {
+    start
+    :Recibe valores **a**, **b**;
+    if (a > b) then (true)
+        :Retorna **a**;
+    else (false)
+        :Retorna **b**;
+    endif
+    stop
+}
+
+' ========================================================
+' FUNCIÓN INLINE: compare(T &x, T &y)
+' ========================================================
+partition "Función: compare(x, y)" {
+    start
+    :Recibe referencias **&x**, **&y**;
+    if (x < y) then (true)
+        :Retorna **-1**;
+        stop
+    else (false)
+    endif
+    if (y < x) then (true)
+        :Retorna **1**;
+        stop
+    else (false)
+    endif
+    :Retorna **0**;
+    stop
+}
+
+' ========================================================
+' FUNCIÓN INLINE: equals(T &x, T &y)
+' ========================================================
+partition "Función: equals(x, y)" {
+    start
+    :Recibe referencias **&x**, **&y**;
+    :Retorna el resultado de **x == y**;
+    stop
+}
+
+' ========================================================
+' FUNCIÓN INLINE: intValue(int x)
+' ========================================================
+partition "Función: intValue(x)" {
+    start
+    :Recibe entero **x**;
+    :Retorna **(unsigned)x**;
+    stop
+}
+
+' ========================================================
+' FUNCIÓN / PROTOTIPO: hashCode(int x)
+' ========================================================
+partition "Función: hashCode(x) [Prototipo]" {
+    start
+    :Recibe entero **x**;
+    :Ejecuta lógica interna del hash;
+    :Retorna **int**;
+    stop
+}
+
+' ========================================================
+' FUNCIÓN TEMPLATE: hashCode(const XFastTrieNode1<T> *u)
+' ========================================================
+partition "Función: hashCode(u) [XFastTrieNode1]" {
+    start
+    :Recibe puntero constante ***u**;
+    :Retorna **u->prefix**;
+    stop
+}
+
+' ========================================================
+' CLASE DODO - SOBRECARGA: operator < (dodo &d)
+' ========================================================
+partition "Clase dodo - Operador: operator<(d)" {
+    start
+    :Recibe referencia **&d**;
+    :Retorna el resultado de **this < &d** (Comparación de direcciones de memoria);
+    stop
+}
+@enduml

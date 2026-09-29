@@ -1,0 +1,156 @@
+@startuml ArrayDeque
+skinparam Monochrome true
+skinparam BorderColor Black
+skinparam BackgroundColor White
+
+' ========================================================
+' CONSTRUCTOR: ArrayDeque()
+' ========================================================
+partition "Constructor: ArrayDeque()" {
+    start
+    :Inicializa arreglo interno **a** con tamaño 1 (**a(1)**);
+    :Asigna **n = 0**;
+    :Asigna **j = 0**;
+    stop
+}
+
+' ========================================================
+' DESTRUCTOR: ~ArrayDeque()
+' ========================================================
+partition "Destructor: ~ArrayDeque()" {
+    start
+    :Destrucción implícita de objetos miembros;
+    stop
+}
+
+' ========================================================
+' MÉTODO: size()
+' ========================================================
+partition "Método: size()" {
+    start
+    :Retorna **n**;
+    stop
+}
+
+' ========================================================
+' MÉTODO: get(int i)
+' ========================================================
+partition "Método: get(i)" {
+    start
+    :Recibe índice **i**;
+    :Retorna **a[(j + i) % a.length]**;
+    stop
+}
+
+' ========================================================
+' MÉTODO: set(int i, T x)
+' ========================================================
+partition "Método: set(i, x)" {
+    start
+    :Recibe índice **i**, valor **x**;
+    :Declara y asigna **T y = a[(j + i) % a.length]**;
+    :Asigna **a[(j + i) % a.length] = x**;
+    :Retorna viejo valor **y**;
+    stop
+}
+
+' ========================================================
+' MÉTODO: clear()
+' ========================================================
+partition "Método: clear()" {
+    start
+    :Asigna **n = 0**;
+    :Asigna **j = 0**;
+    :Instancia arreglo temporal **array<T> b(1)**;
+    :Asigna **a = b**;
+    stop
+}
+
+' ========================================================
+' MÉTODO PROTEGIDO: resize()
+' ========================================================
+partition "Método Protegido: resize()" {
+    start
+    :Calcula tamaño óptimo llamando a **max(1, 2 * n)**;
+    :Instancia arreglo temporal **array<T> b(nuevo_tamano)**;
+    :Inicializa **k = 0**;
+    while (k < n) is (true)
+        :Asigna **b[k] = a[(j + k) % a.length]**;
+        :Incrementa **k++**;
+    endwhile (false)
+    :Asigna **a = b**;
+    :Reinicia **j = 0**;
+    stop
+}
+
+' ========================================================
+' MÉTODO VIRTUAL: add(int i, T x)
+' ========================================================
+partition "Método: add(i, x)" {
+    start
+    :Recibe índice **i**, valor **x**;
+    if (n + 1 > a.length) then (true)
+        :Llama a **resize()**;
+    else (false)
+    endif
+    
+    if (i < n / 2) then (true)
+        note right: Desplazar a[0]...a[i-1] a la izquierda
+        if (j == 0) then (true)
+            :Asigna **j = a.length - 1**;
+        else (false)
+            :Asigna **j = j - 1**;
+        endif
+        :Inicializa **k = 0**;
+        while (k <= i - 1) is (true)
+            :Asigna **a[(j + k) % a.length] = a[(j + k + 1) % a.length]**;
+            :Incrementa **k++**;
+        endwhile (false)
+    else (false)
+        note right: Desplazar a[i]...a[n-1] a la derecha
+        :Inicializa **k = n**;
+        while (k > i) is (true)
+            :Asigna **a[(j + k) % a.length] = a[(j + k - 1) % a.length]**;
+            :Decrementa **k--**;
+        endwhile (false)
+    endif
+    
+    :Asigna el elemento: **a[(j + i) % a.length] = x**;
+    :Incrementa el contador **n++**;
+    stop
+}
+
+' ========================================================
+' MÉTODO VIRTUAL: remove(int i)
+' ========================================================
+partition "Método: remove(i)" {
+    start
+    :Recibe índice **i**;
+    :Declara y almacena **T x = a[(j + i) % a.length]**;
+    
+    if (i < n / 2) then (true)
+        note right: Desplazar a[0]...a[i-1] a la derecha
+        :Inicializa **k = i**;
+        while (k > 0) is (true)
+            :Asigna **a[(j + k) % a.length] = a[(j + k - 1) % a.length]**;
+            :Decrementa **k--**;
+        endwhile (false)
+        :Avanza la cabeza circular: **j = (j + 1) % a.length**;
+    else (false)
+        note right: Desplazar a[i+1]...a[n-1] a la izquierda
+        :Inicializa **k = i**;
+        while (k < n - 1) is (true)
+            :Asigna **a[(j + k) % a.length] = a[(j + k + 1) % a.length]**;
+            :Incrementa **k++**;
+        endwhile (false)
+    endif
+    
+    :Decrementa el contador **n--**;
+    if (3 * n < a.length) then (true)
+        :Llama a **resize()**;
+    else (false)
+    endif
+    :Retorna el elemento eliminado **x**;
+    stop
+}
+@enduml

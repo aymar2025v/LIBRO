@@ -1,0 +1,136 @@
+@startuml DualArrayDeque
+skinparam Monochrome true
+skinparam BorderColor Black
+skinparam BackgroundColor White
+
+' ========================================================
+' CONSTRUCTOR: DualArrayDeque()
+' ========================================================
+partition "Constructor: DualArrayDeque()" {
+    start
+    :Inicializa **front** y **back** de forma implícita;
+    stop
+}
+
+' ========================================================
+' DESTRUCTOR: ~DualArrayDeque()
+' ========================================================
+partition "Destructor: ~DualArrayDeque()" {
+    start
+    :Destrucción implícita de los miembros front y back;
+    stop
+}
+
+' ========================================================
+' MÉTODO: size()
+' ========================================================
+partition "Método: size()" {
+    start
+    :Retorna la suma: **front.size() + back.size()**;
+    stop
+}
+
+' ========================================================
+' MÉTODO: get(int i)
+' ========================================================
+partition "Método: get(i)" {
+    start
+    :Recibe índice **i**;
+    if (i < front.size()) then (true)
+        :Retorna **front.get(front.size() - i - 1)**;
+    else (false)
+        :Retorna **back.get(i - front.size())**;
+    endif
+    stop
+}
+
+' ========================================================
+' MÉTODO: set(int i, T x)
+' ========================================================
+partition "Método: set(i, x)" {
+    start
+    :Recibe índice **i**, valor **x**;
+    if (i < front.size()) then (true)
+        :Retorna **front.set(front.size() - i - 1, x)**;
+    else (false)
+        :Retorna **back.set(i - front.size(), x)**;
+    endif
+    stop
+}
+
+' ========================================================
+' MÉTODO VIRTUAL: add(int i, T x)
+' ========================================================
+partition "Método: add(i, x)" {
+    start
+    :Recibe índice **i**, valor **x**;
+    if (i < front.size()) then (true)
+        :Llama a **front.add(front.size() - i, x)**;
+    else (false)
+        :Llama a **back.add(i - front.size(), x)**;
+    endif
+    :Llama a **balance()**;
+    stop
+}
+
+' ========================================================
+' MÉTODO VIRTUAL: remove(int i)
+' ========================================================
+partition "Método: remove(i)" {
+    start
+    :Recibe índice **i**;
+    if (i < front.size()) then (true)
+        :Asigna **x = front.remove(front.size() - i - 1)**;
+    else (false)
+        :Asigna **x = back.remove(i - front.size())**;
+    endif
+    :Llama a **balance()**;
+    :Retorna **x**;
+    stop
+}
+
+' ========================================================
+' MÉTODO PROTEGIDO: balance()
+' ========================================================
+partition "Método Protegido: balance()" {
+    start
+    if (3 * front.size() < back.size() || 3 * back.size() < front.size()) then (true)
+        note right: La estructura está desbalanceada
+        :Calcula tamaño total **n = front.size() + back.size()**;
+        :Calcula tamaño mitad frontal **nf = n / 2**;
+        
+        :Instancia arreglo **array<T> af(max(2 * nf, 1))**;
+        :Inicializa **i = 0**;
+        while (i < nf) is (true)
+            :Asigna **af[nf - i - 1] = get(i)**;
+            :Incrementa **i++**;
+        endwhile (false)
+        
+        :Calcula tamaño mitad trasera **nb = n - nf**;
+        :Instancia arreglo **array<T> ab(max(2 * nb, 1))**;
+        :Inicializa **i = 0**;
+        while (i < nb) is (true)
+            :Asigna **ab[i] = get(nf + i)**;
+            :Incrementa **i++**;
+        endwhile (false)
+        
+        note right: Reasigna arreglos internos\ny tamaños de las sub-pilas
+        :Asigna **front.a = af**;
+        :Asigna **front.n = nf**;
+        :Asigna **back.a = ab**;
+        :Asigna **back.n = nb**;
+    else (false)
+    endif
+    stop
+}
+
+' ========================================================
+' MÉTODO: clear()
+' ========================================================
+partition "Método: clear()" {
+    start
+    :Llama a **front.clear()**;
+    :Llama a **back.clear()**;
+    stop
+}
+@enduml

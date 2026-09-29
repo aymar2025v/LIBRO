@@ -1,0 +1,83 @@
+@startuml ArrayQueue
+skinparam Monochrome true
+skinparam BorderColor Black
+skinparam BackgroundColor White
+
+' ========================================================
+' CONSTRUCTOR: ArrayQueue()
+' ========================================================
+partition "Constructor: ArrayQueue()" {
+    start
+    :Inicializa arreglo interno **a** con tamaño 1 (**a(1)**);
+    :Asigna **n = 0** (Contador de elementos);
+    :Asigna **j = 0** (Índice de la cabeza de la cola);
+    stop
+}
+
+' ========================================================
+' DESTRUCTOR: ~ArrayQueue()
+' ========================================================
+partition "Destructor: ~ArrayQueue()" {
+    start
+    :Ejecuta **delete a** (Libera memoria del objeto array);
+    stop
+}
+
+' ========================================================
+' MÉTODO: size()
+' ========================================================
+partition "Método: size()" {
+    start
+    :Retorna **n**;
+    stop
+}
+
+' ========================================================
+' MÉTODO PROTEGIDO: resize()
+' ========================================================
+partition "Método Protegido: resize() [Arreglo Circular]" {
+    start
+    :Calcula tamaño óptimo llamando a **max(1, 2 * n)**;
+    :Instancia arreglo temporal **array<T> b(nuevo_tamano)**;
+    :Inicializa **k = 0**;
+    while (k < n) is (true)
+        :Asigna **b[k] = a[(j + k) % a.length]**;
+        :Incrementa **k++**;
+    endwhile (false)
+    :Asigna **a = b** (Actualiza puntero de la estructura);
+    :Reinicia la cabeza de la cola **j = 0**;
+    stop
+}
+
+' ========================================================
+' MÉTODO VIRTUAL: add(T x)
+' ========================================================
+partition "Método: add(x)" {
+    start
+    :Recibe valor **x**;
+    if (n + 1 > a.length) then (true)
+        :Llama a **resize()**;
+    else (false)
+    endif
+    :Calcula posición circular y asigna:\n**a[(j + n) % a.length] = x**;
+    :Incrementa el contador **n++**;
+    :Retorna **true**;
+    stop
+}
+
+' ========================================================
+' MÉTODO VIRTUAL: remove()
+' ========================================================
+partition "Método: remove()" {
+    start
+    :Declara y almacena la cabeza **T x = a[j]**;
+    :Avanza circularmente el índice de la cabeza:\n**j = (j + 1) % a.length**;
+    :Decrementa el contador **n--**;
+    if (a.length >= 3 * n) then (true)
+        :Llama a **resize()**;
+    else (false)
+    endif
+    :Retorna el elemento removido **x**;
+    stop
+}
+@enduml
