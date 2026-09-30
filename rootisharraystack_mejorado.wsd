@@ -1,0 +1,232 @@
+@startuml rootisharraystack_mejorado
+title RootishArrayStack (versión mejorada con unique_ptr) - Diagrama de Flujo Detallado
+skinparam conditionStyle inside
+skinparam defaultFontName Consolas
+skinparam backgroundColor #FEFEFE
+skinparam activity {
+  BackgroundColor #F0F8FF
+  BorderColor #333333
+  ArrowColor #333333
+  DiamondBackgroundColor #FFFACD
+  DiamondBorderColor #333333
+}
+skinparam note {
+  BackgroundColor #FFFFDD
+  BorderColor #AAAAAA
+}
+
+start
+
+note right
+  **Estructura interna**
+  using Block = std::unique_ptr<T[]>
+  ArrayStack<Block> blocks
+  int n
+
+  Bloques: 0, 1, 2, ..., r-1
+  Bloque b tiene b+1 elementos
+  Capacidad = r*(r+1)/2
+  Espacio desperdiciado: O(√n)
+end note
+
+partition "Constructores / Destructor" {
+
+  partition "Constructor por defecto" {
+    :RootishArrayStack() : n(0);
+    note right
+      Solo inicializa n = 0.
+      blocks se construye vacío.
+    end note
+  }
+
+  partition "Constructor de copia" {
+    :RootishArrayStack(const RootishArrayStack& other)
+     : n(other.n);
+    :nb = other.blocks.size();
+    while (b < nb) is (sí)
+      :len = b + 1;
+      :Block blk(new T[len]);
+      :Copiar blk[j] = other.blocks.get(b)[j]\npara j = 0..len-1;
+      :blocks.add(std::move(blk));
+      :b++;
+    endwhile (no)
+    note right
+      Copia profunda.
+      Cada bloque se duplica.
+    end note
+  }
+
+  partition "Constructor de movimiento" {
+    :RootishArrayStack(RootishArrayStack&& other) noexcept
+     : blocks(std::move(other.blocks)), n(other.n);
+    :other.n = 0;
+    note right
+      Transfiere los bloques.
+      El origen queda vacío.
+    end note
+  }
+
+  partition "Operador= copia" {
+    if (this != &other) then (sí)
+      :RootishArrayStack<T> tmp(other);
+      :*this = std::move(tmp);
+    else (no)
+      :No hacer nada;
+    endif
+    note right
+      Copy-and-swap:
+      primero copia, luego mueve.
+      Garantiza excepción segura.
+    end note
+  }
+
+  partition "Operador= movimiento" {
+    if (this != &other) then (sí)
+      :blocks = std::move(other.blocks);
+      :n = other.n;
+      :other.n = 0;
+    else (no)
+      :No hacer nada;
+    endif
+  }
+
+  partition "Destructor" {
+    :~RootishArrayStack() = default;
+    note right
+      unique_ptr libera
+      cada bloque automáticamente.
+      No hay fuga de memoria.
+    end note
+  }
+}
+
+partition "size()" {
+  :return n;
+  note right
+    Complejidad: O(1)
+  end note
+}
+
+partition "i2b(i) - Calcular bloque" {
+  :Entrada: índice i;
+  :assert(i >= 0);
+  :b = ceil((-3 + sqrt(9 + 8*i)) / 2);
+  if (b < 0) then (sí)
+    :b = 0;
+  endif
+  while (b > 0 && b*(b+1)/2 > i) is (sí)
+    :b--;
+  endwhile (no)
+  while ((b+1)*(b+2)/2 <= i) is (sí)
+    :b++;
+  endwhile (no)
+  :return b;
+  note right
+    Fórmula cerrada + corrección
+    de redondeo flotante.
+    Normalmente 0 iteraciones
+    en los bucles.
+  end note
+}
+
+partition "get(i)" {
+  :assert(0 <= i && i < n);
+  :b = i2b(i);
+  :j = i - b*(b+1)/2;
+  :return blocks.get(b)[j];
+  note right
+    Complejidad: O(1)
+  end note
+}
+
+partition "set(i, x)" {
+  :assert(0 <= i && i < n);
+  :b = i2b(i);
+  :j = i - b*(b+1)/2;
+  :T& ref = blocks.get(b)[j];
+  :T y = ref;
+  :ref = x;
+  :return y;
+  note right
+    Complejidad: O(1)
+  end note
+}
+
+partition "grow()" {
+  :r = blocks.size();
+  :blocks.add(Block(new T[r+1]));
+  note right
+    Añade un bloque de tamaño r+1.
+    No copia datos.
+    unique_ptr gestiona memoria.
+  end note
+}
+
+partition "shrink()" {
+  :r = blocks.size();
+  while (r >= 2 && (r-2)*(r-1)/2 >= n) is (sí)
+    :blocks.remove(blocks.size()-1);
+    :r--;
+  endwhile (no)
+  note right
+    Elimina bloques vacíos desde el final.
+    Condición: los primeros r-2 bloques
+    ya pueden contener los n elementos.
+    unique_ptr libera automáticamente.
+  end note
+}
+
+partition "add(i, x)" {
+  :assert(0 <= i && i <= n);
+  :r = blocks.size();
+  if (r*(r+1)/2 < n + 1) then (sí)
+    :grow();
+  endif
+  :n++;
+  :for j = n-1 down to i+1:
+  :  set(j, get(j-1));
+  :set(i, x);
+  note right
+    Complejidad: O(1 + n - i)
+    ignorando grow().
+    grow() es O(1) amortizado.
+  end note
+}
+
+partition "add(x)" {
+  :add(size(), x);
+  note right
+    Atajo para añadir al final.
+  end note
+}
+
+partition "remove(i)" {
+  :assert(0 <= i && i < n);
+  :T x = get(i);
+  :for j = i to n-2:
+  :  set(j, get(j+1));
+  :n--;
+  :shrink();
+  :return x;
+  note right
+    Complejidad: O(n - i)
+    ignorando shrink().
+    shrink() es O(1) amortizado.
+  end note
+}
+
+partition "clear()" {
+  while (blocks.size() > 0) is (sí)
+    :blocks.remove(blocks.size()-1);
+  endwhile (no)
+  :n = 0;
+  note right
+    Libera todos los bloques.
+    Reinicia n = 0.
+    (Corrige el bug de la versión original)
+  end note
+}
+
+stop
+
+@enduml

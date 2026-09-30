@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RootishArrayStack | Mapa de bloques</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --ink: #182b2a;
+            --muted: #60716d;
+            --paper: #f3f7f4;
+            --line: #cbd7d0;
+            --green: #087f68;
+            --green-soft: #d8eee5;
+            --coral: #c6533b;
+            --yellow: #f0ca62;
+            --white: #fff;
+        }
+        * { box-sizing: border-box; }
+        body {
+            min-width: 320px;
+            min-height: 100vh;
+            margin: 0;
+            color: var(--ink);
+            background-color: var(--paper);
+            background-image: radial-gradient(#b9cbc2 0.65px, transparent 0.65px);
+            background-size: 17px 17px;
+            font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+        }
+        main { width: min(1120px, calc(100% - 40px)); margin: 0 auto; padding: 38px 0 54px; }
+        .topline { display: flex; align-items: center; gap: 10px; color: var(--green); font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+        .topline::before { content: ""; width: 26px; height: 3px; background: var(--coral); }
+        h1 { max-width: 760px; margin: 14px 0 8px; font: 400 clamp(2.3rem, 6vw, 4.4rem)/.98 Georgia, "Times New Roman", serif; letter-spacing: 0; }
+        .lede { max-width: 680px; margin: 0; color: var(--muted); font-size: 1rem; line-height: 1.65; }
+        .workspace { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(260px, .8fr); gap: 34px; margin-top: 34px; align-items: start; }
+        .visual, .explainer { border-top: 2px solid var(--ink); padding-top: 14px; }
+        .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 17px; }
+        h2 { margin: 0; font: 700 1.05rem/1.3 "Trebuchet MS", sans-serif; letter-spacing: 0; }
+        .count { color: var(--muted); font-size: .8rem; font-variant-numeric: tabular-nums; }
+        .blocks { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 13px; min-height: 180px; padding: 12px 0 18px; }
+        .block { display: flex; flex-direction: column; gap: 7px; animation: arrive .28s ease both; }
+        .block-label { color: var(--muted); font-size: .7rem; font-weight: 700; }
+        .cells { display: flex; flex-direction: column; gap: 5px; }
+        .cell {
+            display: grid;
+            grid-template-rows: 1fr auto;
+            width: 62px;
+            height: 64px;
+            padding: 7px 6px 5px;
+            border: 1px solid var(--line);
+            border-radius: 3px;
+            background: var(--white);
+            color: var(--ink);
+            cursor: pointer;
+            text-align: left;
+            transition: transform .15s, border-color .15s, background .15s;
+        }
+        .cell:hover, .cell:focus-visible { border-color: var(--green); transform: translateY(-2px); outline: 2px solid transparent; }
+        .cell .value { align-self: center; justify-self: center; font: 700 1rem Georgia, serif; }
+        .cell .index { color: var(--muted); font-size: .63rem; font-variant-numeric: tabular-nums; }
+        .cell.empty { border-style: dashed; background: rgba(255,255,255,.38); }
+        .cell.empty .value { color: #9baba4; font: 400 1.1rem "Trebuchet MS", sans-serif; }
+        .cell.active { border: 2px solid var(--coral); background: #fff1e9; }
+        .cell.shifted { border-color: var(--yellow); background: #fff9df; }
+        .legend { display: flex; flex-wrap: wrap; gap: 15px; border-top: 1px solid var(--line); padding-top: 12px; color: var(--muted); font-size: .72rem; }
+        .key { display: inline-flex; align-items: center; gap: 6px; }
+        .swatch { width: 11px; height: 11px; border: 1px solid var(--line); background: white; }
+        .swatch.used { border-color: var(--green); background: var(--green-soft); }
+        .swatch.focus { border-color: var(--coral); background: #fff1e9; }
+        .swatch.free { border-style: dashed; background: transparent; }
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 20px; }
+        button, input { min-height: 42px; border: 1px solid var(--line); border-radius: 3px; font: inherit; }
+        button { padding: 0 12px; background: var(--white); color: var(--ink); cursor: pointer; font-size: .82rem; font-weight: 700; transition: background .15s, border-color .15s; }
+        button:hover, button:focus-visible { border-color: var(--green); background: var(--green-soft); outline: none; }
+        button.primary { border-color: var(--green); background: var(--green); color: white; }
+        button.primary:hover, button.primary:focus-visible { background: #056b59; }
+        .index-action { display: grid; grid-template-columns: 1fr auto; gap: 7px; }
+        input { width: 100%; padding: 0 10px; background: var(--white); color: var(--ink); }
+        input:focus { border-color: var(--green); outline: 2px solid #087f6830; }
+        .control-label { grid-column: 1 / -1; margin: 3px 0 -3px; color: var(--muted); font-size: .7rem; }
+        .status { min-height: 58px; margin-top: 17px; border-left: 3px solid var(--coral); padding: 9px 12px; background: #fff; color: #3f514d; font-size: .82rem; line-height: 1.5; }
+        .explainer p { margin: 13px 0; color: var(--muted); font-size: .87rem; line-height: 1.6; }
+        .formula { margin: 14px 0; padding: 12px 13px; border-left: 3px solid var(--green); background: var(--green-soft); font: 700 .88rem/1.7 Consolas, monospace; overflow-wrap: anywhere; }
+        .meter { margin: 19px 0 15px; }
+        .meter-head { display: flex; justify-content: space-between; margin-bottom: 7px; color: var(--muted); font-size: .73rem; }
+        .track { display: flex; height: 9px; overflow: hidden; background: #dfe7e2; }
+        .track-used { background: var(--green); transition: width .25s; }
+        .track-free { background: var(--yellow); transition: width .25s; }
+        .fact { display: grid; grid-template-columns: 26px 1fr; gap: 9px; margin-top: 18px; color: var(--muted); font-size: .8rem; line-height: 1.5; }
+        .fact b { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 50%; background: var(--ink); color: white; font-size: .7rem; }
+        .fact strong { color: var(--ink); }
+        @keyframes arrive { from { opacity: .45; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        @media (max-width: 760px) {
+            main { width: min(100% - 28px, 620px); padding-top: 25px; }
+            .workspace { grid-template-columns: 1fr; gap: 26px; margin-top: 26px; }
+            .blocks { min-height: 150px; }
+            .cell { width: min(62px, calc((100vw - 70px) / 4)); }
+        }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+    </style>
+</head>
+<body>
+    <main>
+        <div class="topline">Estructuras de datos · memoria</div>
+        <h1>Un arreglo que crece en escalera.</h1>
+        <p class="lede">RootishArrayStack guarda los elementos en bloques cada vez mayores. Prueba a insertar y quitar valores; mira cómo cambian los bloques y dónde cae cada índice.</p>
+
+        <div class="workspace">
+            <section class="visual" aria-labelledby="memory-title">
+                <div class="section-head">
+                    <h2 id="memory-title">Memoria por bloques</h2>
+                    <span class="count" id="counts"></span>
+                </div>
+                <div class="blocks" id="blocks" aria-live="polite"></div>
+                <div class="legend" aria-label="Leyenda">
+                    <span class="key"><i class="swatch used"></i> elemento ocupado</span>
+                    <span class="key"><i class="swatch free"></i> espacio libre</span>
+                    <span class="key"><i class="swatch focus"></i> índice seleccionado</span>
+                </div>
+                <div class="controls">
+                    <button class="primary" id="append">+ Agregar al final</button>
+                    <button id="removeLast">− Quitar el último</button>
+                    <label class="control-label" for="indexInput">Índice para insertar o quitar</label>
+                    <div class="index-action">
+                        <input id="indexInput" type="number" min="0" value="2" aria-label="Índice" inputmode="numeric">
+                        <button id="insertAt">Insertar</button>
+                    </div>
+                    <div class="index-action">
+                        <input id="removeInput" type="number" min="0" value="2" aria-label="Índice para quitar" inputmode="numeric">
+                        <button id="removeAt">Quitar</button>
+                    </div>
+                    <button id="reset">Reiniciar ejemplo</button>
+                </div>
+                <div class="status" id="status" role="status" aria-live="polite"></div>
+            </section>
+
+            <aside class="explainer">
+                <div class="section-head"><h2>Cómo se ubica un índice</h2></div>
+                <p>El bloque <strong>b</strong> tiene <strong>b + 1</strong> celdas. Antes de él hay <code>b(b+1)/2</code> celdas acumuladas.</p>
+                <div class="formula">índice i → bloque b<br>posición j = i − b(b+1)/2</div>
+                <p id="mapping">Pulsa cualquier celda ocupada o libre para ver su bloque y posición local.</p>
+                <div class="meter" aria-label="Uso de la capacidad">
+                    <div class="meter-head"><span>Elementos / capacidad</span><span id="capacityText"></span></div>
+                    <div class="track"><span class="track-used" id="usedBar"></span><span class="track-free" id="freeBar"></span></div>
+                </div>
+                <div class="fact"><b>1</b><span>Los bloques tienen tamaños <strong>1, 2, 3, 4…</strong>; la capacidad total suma números triangulares.</span></div>
+                <div class="fact"><b>2</b><span><strong>get(i)</strong> calcula bloque y posición directamente, en tiempo O(1).</span></div>
+                <div class="fact"><b>3</b><span>Insertar o quitar en medio desplaza elementos; por eso puede costar O(n).</span></div>
+            </aside>
+        </div>
+    </main>
+    <script>
+        const values = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+        let items = values.slice();
+        let selectedIndex = null;
+        let shiftedIndices = [];
+        const blocksElement = document.getElementById('blocks');
+        const statusElement = document.getElementById('status');
+        const mappingElement = document.getElementById('mapping');
+
+        function blockFor(index) {
+            let block = Math.ceil((-3 + Math.sqrt(9 + 8 * index)) / 2);
+            while (block > 0 && block * (block + 1) / 2 > index) block--;
+            while ((block + 1) * (block + 2) / 2 <= index) block++;
+            return block;
+        }
+
+        function render() {
+            let capacity = 0;
+            let blockCount = 0;
+            while (capacity < items.length) {
+                capacity += blockCount + 1;
+                blockCount++;
+            }
+            blocksElement.replaceChildren();
+            let index = 0;
+            for (let block = 0; block < blockCount; block++) {
+                const group = document.createElement('div');
+                group.className = 'block';
+                const label = document.createElement('div');
+                label.className = 'block-label';
+                label.textContent = `Bloque ${block} · ${block + 1} ${block === 0 ? 'celda' : 'celdas'}`;
+                const cells = document.createElement('div');
+                cells.className = 'cells';
+                for (let local = 0; local <= block; local++, index++) {
+                    const cellIndex = index;
+                    const cell = document.createElement('button');
+                    cell.type = 'button';
+                    cell.className = `cell${index >= items.length ? ' empty' : ''}${index === selectedIndex ? ' active' : ''}${shiftedIndices.includes(index) ? ' shifted' : ''}`;
+                    cell.setAttribute('aria-label', index < items.length ? `Índice ${index}, valor ${items[index]}` : `Índice ${index}, espacio libre`);
+                    const value = document.createElement('span');
+                    value.className = 'value';
+                    value.textContent = index < items.length ? items[index] : '·';
+                    const slot = document.createElement('span');
+                    slot.className = 'index';
+                    slot.textContent = `i=${index}`;
+                    cell.append(value, slot);
+                    cell.addEventListener('click', () => showMapping(cellIndex));
+                    cells.append(cell);
+                }
+                group.append(label, cells);
+                blocksElement.append(group);
+            }
+            document.getElementById('counts').textContent = `n = ${items.length} · ${blockCount} bloques`;
+            document.getElementById('capacityText').textContent = `${items.length} / ${capacity}`;
+            const usedPercent = capacity ? items.length / capacity * 100 : 0;
+            document.getElementById('usedBar').style.width = `${usedPercent}%`;
+            document.getElementById('freeBar').style.width = `${100 - usedPercent}%`;
+            document.getElementById('removeLast').disabled = items.length === 0;
+            document.getElementById('removeAt').disabled = items.length === 0;
+        }
+
+        function showMapping(index) {
+            const block = blockFor(index);
+            const start = block * (block + 1) / 2;
+            const local = index - start;
+            selectedIndex = index;
+            render();
+            mappingElement.innerHTML = `<strong>i = ${index}</strong> está en el bloque <strong>b = ${block}</strong>, posición local <strong>j = ${local}</strong>.<br>${index} − ${start} = ${local}`;
+        }
+
+        function nextValue() {
+            return String.fromCharCode(65 + (items.length % 26));
+        }
+
+        document.getElementById('append').addEventListener('click', () => {
+            const oldBlocks = Math.ceil((-1 + Math.sqrt(1 + 8 * items.length)) / 2);
+            items.push(nextValue());
+            const newCapacity = (oldBlocks + 1) * (oldBlocks + 2) / 2;
+            const grew = items.length > newCapacity - (oldBlocks + 1);
+            shiftedIndices = [];
+            selectedIndex = items.length - 1;
+            statusElement.textContent = grew ? `Agregamos ${items.at(-1)}. Se necesita otro bloque; se reserva uno de tamaño ${oldBlocks + 1}.` : `Agregamos ${items.at(-1)} en el índice ${items.length - 1}; todavía hay espacio en los bloques actuales.`;
+            mappingElement.textContent = 'Se añadió al final; pulsa una celda para inspeccionar su ubicación.';
+            render();
+        });
+
+        document.getElementById('removeLast').addEventListener('click', () => {
+            if (!items.length) return;
+            const removed = items.pop();
+            selectedIndex = null;
+            shiftedIndices = [];
+            statusElement.textContent = `Quitamos ${removed} del final. Si el último bloque queda innecesario, se libera.`;
+            mappingElement.textContent = 'Pulsa cualquier celda ocupada o libre para ver su bloque y posición local.';
+            render();
+        });
+
+        document.getElementById('insertAt').addEventListener('click', () => {
+            const input = document.getElementById('indexInput');
+            const index = Number(input.value);
+            if (!Number.isInteger(index) || index < 0 || index > items.length) {
+                statusElement.textContent = `El índice de inserción debe estar entre 0 y ${items.length}.`;
+                return;
+            }
+            const value = nextValue();
+            items.splice(index, 0, value);
+            selectedIndex = index;
+            shiftedIndices = Array.from({ length: items.length - index - 1 }, (_, offset) => index + offset + 1);
+            statusElement.textContent = index < items.length - 1 ? `Insertamos ${value} en ${index}. Los elementos a su derecha se desplazan una posición.` : `Insertamos ${value} en el índice ${index}.`;
+            mappingElement.textContent = 'El índice resaltado es donde quedó el nuevo elemento.';
+            render();
+        });
+
+        document.getElementById('removeAt').addEventListener('click', () => {
+            const index = Number(document.getElementById('removeInput').value);
+            if (!Number.isInteger(index) || index < 0 || index >= items.length) {
+                statusElement.textContent = `El índice para quitar debe estar entre 0 y ${items.length - 1}.`;
+                return;
+            }
+            const removed = items.splice(index, 1)[0];
+            selectedIndex = index < items.length ? index : null;
+            shiftedIndices = Array.from({ length: items.length - index }, (_, offset) => index + offset);
+            statusElement.textContent = `Quitamos ${removed} del índice ${index}. Los elementos que estaban a su derecha se desplazan una posición a la izquierda.`;
+            mappingElement.textContent = 'Los índices amarillos muestran los elementos que se recorrieron.';
+            render();
+        });
+
+        document.getElementById('reset').addEventListener('click', () => {
+            items = values.slice();
+            selectedIndex = null;
+            shiftedIndices = [];
+            statusElement.textContent = 'Ejemplo reiniciado: siete elementos ocupan cuatro bloques de tamaños 1, 2, 3 y 4.';
+            mappingElement.textContent = 'Pulsa cualquier celda ocupada o libre para ver su bloque y posición local.';
+            render();
+        });
+
+        statusElement.textContent = 'Ejemplo inicial: siete elementos ocupan cuatro bloques de tamaños 1, 2, 3 y 4.';
+        render();
+    </script>
+</body>
+</html>

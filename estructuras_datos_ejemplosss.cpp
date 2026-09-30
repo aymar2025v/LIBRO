@@ -649,6 +649,11 @@ struct RootishArrayStack {
         return y;
     }
 
+    /*
+    La función `RootishArrayStack::grow()` es un método *inline* que aumenta la capacidad de la pila añadiendo 
+    un nuevo bloque de memoria —un arreglo de tipo T— al vector de bloques. Asimismo, incrementa el 
+    contador `g_reorg`, lo que indica una reorganización de la estructura interna de la pila.
+    */
     void grow() { g_reorg++; blocks.push_back(new T[blocks.size() + 1]); }
 
     void shrink() {

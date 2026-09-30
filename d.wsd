@@ -1,0 +1,119 @@
+@startuml
+title RootishArrayStack - Diagrama de Flujo Detallado
+skinparam conditionStyle inside
+skinparam defaultFontName Consolas
+skinparam backgroundColor #FEFEFE
+skinparam activity {
+  BackgroundColor #F0F8FF
+  BorderColor #333333
+  ArrowColor #333333
+  DiamondBackgroundColor #FFFACD
+  DiamondBorderColor #333333
+}
+skinparam note {
+  BackgroundColor #FFFFDD
+  BorderColor #AAAAAA
+}
+
+start
+:Inicializar:\nblocks = ArrayStack<T*>\nn = 0\nr = blocks.size();
+
+note right
+  **Capacidad total** = r*(r+1)/2
+  Bloques: 0, 1, 2, ..., r-1
+  El bloque b tiene b+1 elementos.
+  Espacio desperdiciado: O(√n)
+end note
+
+partition "i2b(i) - Encontrar bloque" {
+  :Entrada: índice i;
+  :b = ceil((-3 + sqrt(9 + 8*i)) / 2);
+  note right
+    Resuelve la inecuación:
+    b² + 3b - 2i ≥ 0
+    Se toma la raíz positiva.
+  end note
+  :Salida: b;
+}
+
+partition "get(i) / set(i,x)" {
+  :b = i2b(i);
+  :j = i - b*(b+1)/2;
+  if (operación es get) then (sí)
+    :return blocks.get(b)[j];
+  else (set)
+    :y = blocks.get(b)[j];
+    :blocks.get(b)[j] = x;
+    :return y;
+  endif
+  note right
+    Complejidad: O(1)
+    (asumiendo i2b en O(1))
+  end note
+}
+
+partition "add(i,x)" {
+  :Entrada: i, x;
+  if (n + 1 > r*(r+1)/2) then (sí)
+    :grow();
+    note right
+      Se añade un nuevo bloque
+      de tamaño r+1 al final.
+    end note
+  endif
+  :Desplazar elementos a la derecha:
+  :for j = n down to i+1:
+  :  set(j, get(j-1));
+  :set(i, x);
+  :n = n + 1;
+  note right
+    Complejidad: O(1 + n - i)
+    ignorando grow().
+    grow() es O(1) amortizado.
+  end note
+}
+
+partition "remove(i)" {
+  :Entrada: i;
+  :x = get(i);
+  :Desplazar elementos a la izquierda:
+  :for j = i to n-2:
+  :  set(j, get(j+1));
+  :n = n - 1;
+  if ((r-2)*(r-1)/2 >= n) then (sí)
+    :shrink();
+    note right
+      Elimina bloques vacíos
+      desde el final.
+    end note
+  endif
+  :return x;
+  note right
+    Complejidad: O(n - i)
+    ignorando shrink().
+    shrink() es O(1) amortizado.
+  end note
+}
+
+partition "grow()" {
+  :r = blocks.size();
+  :blocks.add(r, new T[r+1]);
+  note right
+    No copia datos.
+    Solo asigna un nuevo bloque.
+  end note
+}
+
+partition "shrink()" {
+  while (r > 0 && (r-2)*(r-1)/2 >= n) is (sí)
+    :delete[] blocks.remove(r-1);
+    :r = r - 1;
+  endwhile (no)
+  note right
+    Condición: los primeros r-2 bloques
+    ya pueden contener los n elementos.
+  end note
+}
+
+stop
+@enduml
