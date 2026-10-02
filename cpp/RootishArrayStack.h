@@ -19,7 +19,7 @@ namespace ods
     {
     protected:
         ArrayStack<T *> blocks;
-        int n;
+        int n; // Número de elementos reales almacenados en toda la estructura. No es el número de bloques; es la cantidad de datos que el usuario ha insertado.
 
         int i2b(const int& i) const;
         void grow();

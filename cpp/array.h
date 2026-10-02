@@ -44,7 +44,16 @@ public:
 		return a[i];
 	}
 
+	const T& operator[](int i) const {
+		assert(i >= 0 && i < length);
+		return a[i];
+	}
+
 	T* operator+(int i) {
+		return &a[i];
+	}
+
+	const T* operator+(int i) const {
 		return &a[i];
 	}
 

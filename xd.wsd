@@ -1,0 +1,43 @@
+@startuml xd
+skinparam stateBackgroundColor #E0F2F1
+skinparam stateBorderColor #00695C
+skinparam arrowColor #00695C
+skinparam noteBackgroundColor #FFF9C4
+skinparam noteBorderColor #F9A825
+
+title add(1, 5) — Insertar el valor 5 en la posición 1\nn = 3, r = 2 → n = 4, r = 3
+
+state "Antes" as ANTES {
+  ANTES : n = 3
+  ANTES : blocks.size() = 2
+  ANTES : Capacidad = 3
+  ANTES : ---
+  ANTES : Bloque 0: [10]
+  ANTES : Bloque 1: [20, 30]
+}
+
+state "Después" as DESPUES {
+  DESPUES : n = 4
+  DESPUES : blocks.size() = 3
+  DESPUES : Capacidad = 6
+  DESPUES : ---
+  DESPUES : Bloque 0: [10]
+  DESPUES : Bloque 1: [5, 20]
+  DESPUES : Bloque 2: [30, ?, ?]
+}
+
+ANTES --> DESPUES : add(1, 5)
+
+note bottom of ANTES
+  Capacidad justa: 2·3/2 = 3 = n.
+  El siguiente add forzará grow().
+end note
+
+note bottom of DESPUES
+  grow() creó el bloque 2 (tamaño 3).
+  El 30 se desplazó de la posición 2 a la 3.
+  El 20 se desplazó de la posición 1 a la 2.
+  El 5 se colocó en la posición 1.
+end note
+
+@enduml

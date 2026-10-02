@@ -119,3 +119,7 @@ void RootishArrayStack<T>::clear() {
 } /* namespace ods */
 #endif /* ROOTISHARRAYSTACK_H_ */
 ```
+
+```cpp
+ods::RootishArrayStack<int> s;
+```

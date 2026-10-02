@@ -7,6 +7,7 @@
 
 #ifndef ARRAYSTACK_H_
 #define ARRAYSTACK_H_
+#include <iostream>
 #include "array.h"
 #include "utils.h"
 
@@ -25,22 +26,30 @@ protected:
 public:
 	ArrayStack();
 	virtual ~ArrayStack();
-	int size();
-	T get(int i);
+	int size() const;
+	T get(int i) const;
 	T set(int i, T x);
 	virtual void add(int i, T x);
 	virtual void add(T x) { add(size(), x); }
 	virtual T remove(int i);
 	virtual void clear();
+	void printAddresses() {
+		std::cout << "  [";
+		for (int i = 0; i < n; i++) {
+			std::cout << " [" << i << "]=" << static_cast<const void*>(a[i]);
+			if (i + 1 < n) std::cout << ",";
+		}
+		std::cout << " ]\n";
+	}
 };
 
 template<class T> inline
-int ArrayStack<T>::size() {
+int ArrayStack<T>::size() const {
 	return n;
 }
 
 template<class T> inline
-T ArrayStack<T>::get(int i) {
+T ArrayStack<T>::get(int i) const {
 	return a[i];
 }
 
