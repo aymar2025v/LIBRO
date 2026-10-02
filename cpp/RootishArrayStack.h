@@ -18,7 +18,9 @@ namespace ods
     class RootishArrayStack
     {
     protected:
-        ArrayStack<T *> blocks;
+        // Cada T* apunta al primer elemento de un bloque.
+
+        ArrayStack<T *> blocks; 
         int n; // Número de elementos reales almacenados en toda la estructura. No es el número de bloques; es la cantidad de datos que el usuario ha insertado.
 
         int i2b(const int& i) const;
@@ -107,8 +109,9 @@ namespace ods
 
     // método que añade un nuevo bloque al final cuando ya no hay capacidad para insertar más elementos.
     template <class T>
-    void RootishArrayStack<T>::grow() // 
+    void RootishArrayStack<T>::grow() 
     {
+        // add recibe un índice y un puntero. El segundo parámetro no es un T, es un T*.
         blocks.add(blocks.size(), new T[blocks.size() + 1]);
     }
 
@@ -124,6 +127,7 @@ namespace ods
         }
     }
 
+    // el método que elimina todos los elementos y libera todos los bloques de memoria.
     template <class T>
     void RootishArrayStack<T>::clear()
     {

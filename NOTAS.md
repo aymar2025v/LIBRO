@@ -123,3 +123,17 @@ void RootishArrayStack<T>::clear() {
 ```cpp
 ods::RootishArrayStack<int> s;
 ```
+
+```cpp
+blocks.add(  int  ,   T*   );
+              ^        ^
+              |        |
+        posición    puntero al nuevo bloque
+```
+Porque `RootishArrayStack` no guarda los datos en un solo arreglo. Los reparte en bloques. Cada bloque es un arreglo dinámico de T. Para poder tener varios bloques, necesita guardarlos en algún sitio: ese sitio es blocks, y como cada bloque es un arreglo, lo que guarda son punteros a esos arreglos.
+```bash
+blocks: [ ptr0, ptr1, ptr2 ]
+            |     |     |
+            v     v     v
+        [T]   [T,T]  [T,T,T]
+```
